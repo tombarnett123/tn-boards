@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<title>Kie credits: Tom</title>
+<style>html,body{margin:0;background:#fbf7ef} .tn{border-radius:0!important}</style>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script>window.DASH_CONFIG = {page:'kie-tom',datasets:{log:'data/kie_tom_log.bin',keys:'data/kie_tom_keys.bin',log_all:'data/kie_tom_all.bin'},defaults:{window:'month'}};</script>
+<script src="dash.js"></script>
+</head><body>
+<link rel="stylesheet" href="editor.css">
+<style>
+  /* Same look as the Editor and Creative Strategist dashboards: black band, orange accents, Oswald heads, white cards on sand. */
+  .tn {
+    --tn-black: #19150f; --tn-orange: #e29709; --tn-orange-dark: #b97a06; --tn-sand: #e8dac0; --tn-cream: #f6eedf;
+    --tn-page: #fbf7ef; --tn-card: #ffffff; --tn-line: #ece3d2; --tn-tint: #f3ebdc; --tn-ink: #222222; --tn-muted: rgba(34, 34, 34, .62);
+    --tn-ok: #2ea043; --tn-bad: #c4432b; --tn-gold: #f1cf5e;
+    --tn-head: 'Oswald', 'Arial Narrow', Impact, sans-serif; --tn-body: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
+    font-family: var(--tn-body); color: var(--tn-ink); background: var(--tn-page); border-radius: 10px; overflow: hidden; line-height: 1.4;
+  }
+  .tn b { font-weight: 700; }
+
+  .tn-band { background: var(--tn-black); color: var(--tn-cream); padding: 22px max(16px, 3vw) 26px; display: flex; flex-direction: column; gap: 12px; }
+  .tn-logo { width: 136px; height: 57px; background-repeat: no-repeat; background-position: left center; background-size: contain; }
+  .tn-title { margin: 4px 0 0; font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; font-size: clamp(36px, 7vw, 60px); line-height: .95; letter-spacing: .01em; text-wrap: balance; color: var(--tn-cream); }
+  .tn-band-prize { margin: 0; font-size: 16px; color: var(--tn-cream); }
+  .tn-window { margin: 0; color: var(--tn-sand); font-size: 14px; }
+  .tn-lead { margin: 0; font-size: 17px; font-weight: 600; }
+  .tn-lead b { font-family: var(--tn-head); font-weight: 700; color: var(--tn-orange); font-size: 20px; letter-spacing: .02em; }
+  .tn-tag { align-self: flex-start; font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--tn-black); background: var(--tn-orange); border-radius: 3px; padding: 3px 8px; }
+  .tn-banner { margin: 0; padding: 12px max(16px, 3vw); background: var(--tn-orange); color: var(--tn-black); font-size: 14px; font-weight: 600; }
+  .tn-banner strong { font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-right: 8px; }
+
+  .tn-bar-wrap { position: sticky; top: 0; z-index: 3; background: var(--tn-page); border-bottom: 1px solid var(--tn-line); padding: 12px max(16px, 3vw); display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+  .tn-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .tn-field > span { font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--tn-muted); }
+  .tn-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tn-tab { font-family: var(--tn-head); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 14px; line-height: 1.1; min-height: 44px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--tn-line); background: var(--tn-card); color: var(--tn-ink); cursor: pointer; }
+  .tn-tab[aria-pressed="true"] { background: var(--tn-black); border-color: var(--tn-black); color: var(--tn-cream); box-shadow: inset 0 -3px 0 var(--tn-orange); }
+  .tn-tab:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+
+  .tn-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 22px max(16px, 3vw) 26px; align-items: start; }
+  .tn-card { background: var(--tn-card); border: 1px solid var(--tn-line); border-radius: 8px; min-width: 0; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(25, 21, 15, .06); }
+  .tn-card-head { padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 3px solid var(--tn-orange); }
+  .tn-card h2 { margin: 0; font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; font-size: 22px; letter-spacing: .02em; line-height: 1.05; color: var(--tn-black); }
+  .tn-note { margin: 0; color: var(--tn-muted); font-size: 12.5px; }
+  .tn-scroll { max-height: 680px; overflow: auto; min-height: 120px; }
+  .tn-wide { grid-column: 1 / -1; }
+  .tn-half { grid-column: span 2; }
+
+  .tn-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; background: var(--tn-line); }
+  .tn-stat { background: var(--tn-card); padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .tn-stat > span { font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .07em; font-size: 11px; color: var(--tn-muted); }
+  .tn-stat b { font-family: var(--tn-head); font-weight: 700; font-size: 26px; font-variant-numeric: tabular-nums; color: var(--tn-black); }
+  .tn-stat .tn-sub { margin-top: 0; }
+  .tn-stat-hero b { font-size: 34px; color: var(--tn-ok); }
+  .tn-gap-warn { color: var(--tn-orange-dark) !important; }
+
+  .tn-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .tn-table th { position: sticky; top: 0; z-index: 1; background: var(--tn-card); text-align: left; font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--tn-muted); padding: 10px 12px 8px; border-bottom: 1px solid var(--tn-line); white-space: nowrap; }
+  .tn-table th.num, .tn-table td.num { text-align: right; }
+  .tn-table td { padding: 10px 12px; border-bottom: 1px solid var(--tn-line); vertical-align: middle; }
+  .tn-table tr:last-child td { border-bottom: 0; }
+  .tn-rank { width: 44px; }
+  .tn-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; border-radius: 4px; font-family: var(--tn-head); font-weight: 700; font-size: 15px; color: var(--tn-muted); }
+  .tn-medals tr.tn-r1 .tn-badge { background: linear-gradient(135deg, #f7d774, #c99a1e); color: var(--tn-black); }
+  .tn-medals tr.tn-r2 .tn-badge { background: linear-gradient(135deg, #eef0f3, #a4a9b2); color: var(--tn-black); }
+  .tn-medals tr.tn-r3 .tn-badge { background: linear-gradient(135deg, #e7a874, #a3622c); color: var(--tn-black); }
+  .tn-who { display: flex; align-items: center; gap: 10px; }
+  .tn-who-text { min-width: 0; flex: 1 1 0%; }
+  .tn-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .tn-sub { display: block; color: var(--tn-muted); font-size: 12px; font-weight: 400; margin-top: 2px; }
+  .tn-bar { display: block; height: 4px; margin-top: 7px; background: var(--tn-tint); border-radius: 2px; overflow: hidden; }
+  .tn-bar span { display: block; height: 100%; background: var(--tn-orange); border-radius: 2px; }
+  .tn-val { font-family: var(--tn-head); font-weight: 700; font-size: 20px; white-space: nowrap; letter-spacing: .01em; color: var(--tn-black); }
+  .tn-val-sm { font-family: var(--tn-head); font-weight: 600; font-size: 16px; white-space: nowrap; color: var(--tn-black); }
+  .tn-avatar { position: relative; flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: var(--tn-black); color: var(--tn-cream); display: inline-flex; align-items: center; justify-content: center; font-family: var(--tn-head); font-weight: 500; font-size: 13px; letter-spacing: .03em; }
+  .tn-avatar.tn-unknown { background: var(--tn-tint); color: var(--tn-orange-dark); }
+  .tn-model { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+  .tn-pill { display: inline-block; font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; border-radius: 3px; padding: 2px 7px; background: var(--tn-tint); color: var(--tn-muted); }
+  .tn-pill.ok { background: rgba(46, 160, 67, .12); color: var(--tn-ok); }
+  .tn-pill.bad { background: rgba(196, 67, 43, .12); color: var(--tn-bad); }
+  .tn-msg { margin: 0; padding: 18px 16px; color: var(--tn-muted); font-size: 13px; }
+
+  .tn-chart { position: relative; min-height: 240px; padding: 12px 16px 16px; }
+  .tn-chart svg text { fill: var(--tn-muted); font-size: 11px; font-family: var(--tn-body); }
+  .tn-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 12px 16px 0; font-size: 12px; color: var(--tn-muted); }
+  .tn-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .tn-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .tn-tip { position: absolute; pointer-events: none; background: var(--tn-black); color: var(--tn-cream); border-radius: 6px; padding: 8px 10px; font-size: 12px; white-space: nowrap; z-index: 4; box-shadow: 0 4px 14px rgba(25, 21, 15, .25); font-variant-numeric: tabular-nums; }
+  .tn-tip strong { font-family: var(--tn-head); font-weight: 600; letter-spacing: .02em; display: block; margin-bottom: 2px; color: var(--tn-orange); }
+
+  .tn-guide { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--tn-line); }
+  .tn-guide > div { background: var(--tn-card); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .tn-guide h3 { margin: 0; font-family: var(--tn-head); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 15px; color: var(--tn-black); }
+  .tn-guide p { margin: 0; font-size: 13px; color: var(--tn-ink); }
+  .tn-foot { margin: 0; padding: 0 max(16px, 3vw) 22px; color: var(--tn-muted); font-size: 12.5px; }
+
+  [data-dash-source-state=refreshing] { opacity: .5; transition: opacity .3s; }
+  [data-dash-source-state=empty] { color: transparent; }
+  @media (max-width: 1250px) {
+    .tn-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tn-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .tn-half { grid-column: 1 / -1; }
+  }
+  @media (max-width: 1000px) { .tn-guide { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 760px) {
+    .tn { border-radius: 0; font-size: 14px; }
+    .tn-band { padding: 18px 16px 20px; gap: 10px; }
+    .tn-logo { width: 104px; height: 44px; }
+    .tn-grid { grid-template-columns: minmax(0, 1fr); padding: 12px 16px 20px; }
+    .tn-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tn-scroll { max-height: none; overflow: visible; }
+    .tn-table td { padding: 10px 8px; } .tn-table th { padding: 8px 8px 6px; }
+    .tn-val { font-size: 18px; }
+  }
+  @media (max-width: 520px) { .tn-guide { grid-template-columns: 1fr; } }
+</style>
+
+<div class="tn" id="kie">
+  <section class="tn-band" id="top">
+    <div class="tn-logo tn-logo-img" role="img" aria-label="Tradesman Nutrition"></div>
+    <h1 class="tn-title">Kie credits: Tom</h1>
+    <p class="tn-band-prize">How many Kie credits and dollars your own key is using, and on which models. The team board no longer shows you.</p>
+    <p class="tn-window">Showing <span data-draw="win-label">—</span>. Kie balance left: <span data-draw="balance" data-source="account" data-field="balance" data-row="0">—</span> credits, as of <span data-draw="balance-at" data-source="account" data-field="balance_at" data-row="0">—</span>. USD at $0.005 a credit.</p>
+    <p class="tn-lead"><span data-draw="leader" data-source="editors">—</span></p>
+    <span class="tn-tag">Private to Tom only · your own Kie key</span>
+  </section>
+  <p class="tn-banner"><strong>How to read this</strong>Every editor has their own Kie key. When a job finishes, the kie tool logs exactly what Kie charged for it against that key. Failed jobs cost nothing.</p>
+
+  <div class="tn-bar-wrap" id="filters">
+    <div class="tn-field"><span>Time window</span>
+      <div class="tn-tabs" role="group" aria-label="Time window">
+        <button type="button" class="tn-tab" data-win="month">This month</button>
+        <button type="button" class="tn-tab" data-win="30d">30D</button>
+        <button type="button" class="tn-tab" data-win="all">All time</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tn-grid">
+    <section class="tn-card tn-wide" id="team">
+      <div class="tn-card-head">
+        <h2>Your usage</h2>
+        <p class="tn-note">Credits and dollars on your key in this window. Not logged checks the whole Kie account.</p>
+      </div>
+      <div class="tn-stats">
+        <div class="tn-stat tn-stat-hero"><span>Spent (USD)</span><b data-draw="tot" data-source="totals" data-field="usd">—</b></div>
+        <div class="tn-stat"><span>Credits used</span><b data-draw="tot" data-source="totals" data-field="credits">—</b></div>
+        <div class="tn-stat"><span>Jobs run</span><b data-draw="tot" data-source="totals" data-field="tasks">—</b></div>
+        <div class="tn-stat"><span>Jobs failed</span><b data-draw="tot" data-source="totals" data-field="failed">—</b></div>
+        <div class="tn-stat"><span>Editors active</span><b data-draw="tot" data-source="totals" data-field="active">—</b></div>
+        <div class="tn-stat"><span>Not logged</span><b data-draw="gap" data-source="account" data-field="unlogged" data-row="0">—</b><span class="tn-sub">credits used outside the kie tool</span></div>
+      </div>
+    </section>
+
+    <section class="tn-card tn-half" id="editors">
+      <div class="tn-card-head">
+        <h2>Each editor</h2>
+        <p class="tn-note">Who is using the most, in this window. The bar compares each editor to the top spender.</p>
+      </div>
+      <div class="tn-scroll">
+        <table class="tn-table tn-medals" data-source="editors" data-row-key="window,person">
+          <thead><tr><th data-field="rank">Rank</th><th data-field="person">Editor</th><th class="num" data-field="credits">Credits</th><th class="num" data-field="usd">USD</th></tr></thead>
+          <tbody data-draw="editor-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tn-card tn-half" id="models">
+      <div class="tn-card-head">
+        <h2>Models used</h2>
+        <p class="tn-note">Which Kie models the credits went on, in this window, with the average cost of a finished job.</p>
+      </div>
+      <div class="tn-scroll">
+        <table class="tn-table" data-source="models" data-row-key="window,model">
+          <thead><tr><th data-field="model">Model</th><th class="num" data-field="tasks">Jobs</th><th class="num" data-field="avg_usd">Avg per job</th><th class="num" data-field="usd">USD</th></tr></thead>
+          <tbody data-draw="model-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tn-card tn-wide" id="editor-models">
+      <div class="tn-card-head">
+        <h2>Which models each editor used</h2>
+        <p class="tn-note">One row for each editor on each model, in this window.</p>
+      </div>
+      <div class="tn-scroll">
+        <table class="tn-table" data-source="editor_models" data-row-key="window,person,model">
+          <thead><tr><th data-field="person">Editor</th><th data-field="model">Model</th><th class="num" data-field="tasks">Jobs</th><th class="num" data-field="credits">Credits</th><th class="num" data-field="usd">USD</th></tr></thead>
+          <tbody data-draw="editor-model-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tn-card tn-wide" id="daily">
+      <div class="tn-card-head">
+        <h2>Spend per day</h2>
+        <p class="tn-note">USD per day over the last 30 days, stacked by editor. Point at a day to see the split.</p>
+      </div>
+      <div class="tn-legend" data-draw="daily-legend" data-source="daily"></div>
+      <div class="tn-chart" data-draw="daily-chart" data-source="daily"></div>
+    </section>
+
+    <section class="tn-card tn-wide" id="recent">
+      <div class="tn-card-head">
+        <h2>Latest jobs</h2>
+        <p class="tn-note">The last 25 Kie jobs from any editor.</p>
+      </div>
+      <div class="tn-scroll">
+        <table class="tn-table" data-source="log" data-row-key="task_id">
+          <thead><tr><th data-field="time">When (Sydney)</th><th data-field="person">Editor</th><th data-field="model">Model</th><th data-field="state">Result</th><th class="num" data-field="credits">Credits</th><th data-field="task_id">Task ID</th></tr></thead>
+          <tbody data-draw="recent-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tn-card tn-wide" id="guide">
+      <div class="tn-card-head">
+        <h2>Reading the numbers</h2>
+        <p class="tn-note">What each number on this page means.</p>
+      </div>
+      <div class="tn-guide">
+        <div><h3>Credits</h3><p>What Kie charged for the job, read straight from Kie once the job finishes. Different models and lengths cost different amounts.</p></div>
+        <div><h3>USD</h3><p>Credits times $0.005, Kie's listed price per credit. Top-up bonuses aren't counted, so this is the most it cost.</p></div>
+        <div><h3>Not logged</h3><p>How far Kie's balance dropped beyond what the kie tool logged. Above zero means someone used Kie another way, like the kie.ai website. A top-up pushes it below zero.</p></div>
+        <div><h3>Unknown key</h3><p>A job run with a key that isn't in the Keys tab of the usage sheet. Add the key ID and the editor's name there and it moves to them.</p></div>
+      </div>
+    </section>
+  </div>
+  <p class="tn-foot">Months and days are in Sydney time. Keys expire 10 February 2027.</p>
+</div>
+
+<script>
+
+
+  dash.calc('editors', {
+    title: 'Credits by editor',
+    description: 'Each editor\'s credits, USD and jobs this month, over the last 30 days and all time, ranked by credits. Editors with no jobs show as 0.',
+    inputs: ['log', 'keys'],
+    fn: (log, keys) => {
+      const USD_PER_CREDIT = 0.005;
+      const today = new Intl.DateTimeFormat('en-CA', {timeZone: 'Australia/Sydney'}).format(new Date());
+      const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 29);
+      const inWin = {month: (day) => day.slice(0, 7) === today.slice(0, 7), '30d': (day) => day >= d.toISOString().slice(0, 10), all: () => true};
+      const people = [...new Set([...keys.map((k) => k.person), ...log.map((r) => r.person || 'Unknown key')])];
+      const out = [];
+      Object.keys(inWin).forEach((w) => {
+        const rows = people.map((person) => {
+          const mine = log.filter((r) => (r.person || 'Unknown key') === person && inWin[w](r.time.slice(0, 10)));
+          const credits = mine.reduce((s, r) => s + r.credits, 0);
+          return {window: w, person, key_ids: keys.filter((k) => k.person === person).map((k) => k.key_id).join(', '),
+            credits, usd: Math.round(credits * USD_PER_CREDIT * 100) / 100, tasks: mine.length, failed: mine.filter((r) => r.state === 'fail').length,
+            last_used: mine.reduce((m, r) => (r.time > m ? r.time : m), '')};
+        }).filter((r) => r.person !== 'Unknown key' || r.tasks > 0)
+          .sort((a, b) => b.credits - a.credits || b.tasks - a.tasks || a.person.localeCompare(b.person));
+        rows.forEach((r, i) => out.push({...r, rank: i + 1}));
+      });
+      return out;
+    },
+  });
+
+  dash.calc('totals', {
+    title: 'Team totals',
+    description: 'Credits, USD, jobs, failed jobs and active editors for the whole team in each window.',
+    inputs: ['editors'],
+    fn: (editors) => ['month', '30d', 'all'].map((w) => {
+      const USD_PER_CREDIT = 0.005;
+      const rows = editors.filter((r) => r.window === w);
+      const sum = (f) => rows.reduce((s, r) => s + r[f], 0);
+      return {window: w, credits: sum('credits'), usd: Math.round(sum('credits') * USD_PER_CREDIT * 100) / 100, tasks: sum('tasks'), failed: sum('failed'), active: rows.filter((r) => r.tasks > 0).length};
+    }),
+  });
+
+  dash.calc('editor_models', {
+    title: 'Credits by editor and model',
+    description: 'Credits, USD and jobs for each editor on each Kie model, in each window.',
+    inputs: ['log'],
+    fn: (log) => {
+      const USD_PER_CREDIT = 0.005;
+      const today = new Intl.DateTimeFormat('en-CA', {timeZone: 'Australia/Sydney'}).format(new Date());
+      const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 29);
+      const inWin = {month: (day) => day.slice(0, 7) === today.slice(0, 7), '30d': (day) => day >= d.toISOString().slice(0, 10), all: () => true};
+      const acc = new Map();
+      log.forEach((r) => Object.keys(inWin).forEach((w) => {
+        if (!inWin[w](r.time.slice(0, 10))) return;
+        const person = r.person || 'Unknown key';
+        const k = [w, person, r.model].join('\u0000');
+        if (!acc.has(k)) acc.set(k, {window: w, person, model: r.model, credits: 0, tasks: 0});
+        const a = acc.get(k); a.credits += r.credits; a.tasks += 1;
+      }));
+      return [...acc.values()].map((a) => ({...a, usd: Math.round(a.credits * USD_PER_CREDIT * 100) / 100}))
+        .sort((a, b) => a.person.localeCompare(b.person) || b.credits - a.credits);
+    },
+  });
+
+  dash.calc('models', {
+    title: 'Credits by model',
+    description: 'Credits, USD, jobs and the average USD per finished job for each Kie model, in each window.',
+    inputs: ['editor_models', 'log'],
+    fn: (editor_models, log) => {
+      const USD_PER_CREDIT = 0.005;
+      const acc = new Map();
+      editor_models.forEach((r) => {
+        const k = r.window + '\u0000' + r.model;
+        if (!acc.has(k)) acc.set(k, {window: r.window, model: r.model, credits: 0, tasks: 0});
+        const a = acc.get(k); a.credits += r.credits; a.tasks += r.tasks;
+      });
+      return [...acc.values()].map((a) => {
+        const done = log.filter((r) => r.model === a.model && r.state === 'success').length;
+        const allCredits = log.filter((r) => r.model === a.model).reduce((s, r) => s + r.credits, 0);
+        return {...a, usd: Math.round(a.credits * USD_PER_CREDIT * 100) / 100, avg_usd: done ? Math.round(allCredits / done * USD_PER_CREDIT * 1000) / 1000 : 0};
+      }).sort((a, b) => b.credits - a.credits);
+    },
+  });
+
+  dash.calc('account', {
+    title: 'Kie balance check',
+    description: 'The latest Kie balance the kie tool saw, and how far the balance drop differs from the credits logged since the first job.',
+    inputs: ['log_all'],
+    fn: (log) => {
+      const withBal = log.filter((r) => r.balance !== null).sort((a, b) => a.time.localeCompare(b.time));
+      const first = withBal[0], last = withBal[withBal.length - 1];
+      if (!first) return [{balance: null, balance_at: null, balance_drop: null, logged_since_first: null, unlogged: null}];
+      const drop = Math.round((first.balance + first.credits - last.balance) * 100) / 100;
+      const logged = log.filter((r) => r.time >= first.time).reduce((s, r) => s + r.credits, 0);
+      return [{balance: last.balance, balance_at: last.time, balance_drop: drop, logged_since_first: logged, unlogged: Math.round((drop - logged) * 100) / 100}];
+    },
+  });
+
+  dash.calc('daily', {
+    title: 'USD per day by editor',
+    description: 'USD per Sydney day and editor over the last 30 days.',
+    inputs: ['log'],
+    fn: (log) => {
+      const USD_PER_CREDIT = 0.005;
+      const today = new Intl.DateTimeFormat('en-CA', {timeZone: 'Australia/Sydney'}).format(new Date());
+      const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 29);
+      const from = d.toISOString().slice(0, 10);
+      const acc = new Map();
+      log.forEach((r) => {
+        const day = r.time.slice(0, 10);
+        if (day < from || day > today) return;
+        const k = day + '\u0000' + (r.person || 'Unknown key');
+        acc.set(k, (acc.get(k) || 0) + r.credits);
+      });
+      return [...acc.entries()].map(([k, credits]) => { const [day, person] = k.split('\u0000'); return {day, person, credits, usd: Math.round(credits * USD_PER_CREDIT * 100) / 100}; })
+        .sort((a, b) => a.day.localeCompare(b.day) || a.person.localeCompare(b.person));
+    },
+  });
+</script>
+
+<script>
+  const FACES = {Aubrey: 'aubrey', Adiyatma: 'ady', Ady: 'ady', Richmond: 'ritchmond', Ritchmond: 'ritchmond', James: 'james', Rolling: 'rolling', Tom: 'tom', Lance: 'lance'};   // Slack photos in brand.css
+  const WIN = {month: 'this month', '30d': 'the last 30 days', all: 'all time'};
+  const win = () => (WIN[dash.params().window] ? dash.params().window : 'month');
+  const enc = encodeURIComponent;
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const n = (v) => (v === null || v === undefined ? '—' : d3.format(',.4~f')(v));
+  const usd = (v) => (v === null || v === undefined ? '—' : v > 0 && v < 1 ? d3.format('$.2f')(v) : d3.format('$,.2f')(v));
+  const usd3 = (v) => (v === null || v === undefined ? '—' : d3.format(v > 0 && v < 0.1 ? '$,.3f' : '$,.2f')(v));
+  const when = (s) => { if (!s) return '—'; const t = new Date(s.replace(' ', 'T') + 'Z'); return Number.isNaN(+t) ? s : d3.utcFormat('%-d %b, %-I:%M %p')(t); };
+  const initials = (s) => s.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  const avatar = (name) => el('span', 'tn-avatar' + (FACES[name] ? ' tn-face tn-face-' + FACES[name] : name === 'Unknown key' ? ' tn-unknown' : ''), name === 'Unknown key' ? '?' : initials(name));
+  const who = (name, sub) => {
+    const w = el('div', 'tn-who'); const t = el('div', 'tn-who-text');
+    t.append(el('div', 'tn-name', name)); if (sub) t.append(el('span', 'tn-sub', sub));
+    w.append(avatar(name), t); return w;
+  };
+  window.tnKie = {win, n, usd, el};
+
+  // Controls: fixed choices live in the HTML; scripts only listen and set state.
+  document.querySelectorAll('[data-win]').forEach((b) => b.addEventListener('click', () => dash.setParams({window: b.dataset.win})));
+  dash.onData(() => {
+    const w = win();
+    document.querySelectorAll('[data-win]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.win === w)));
+  });
+
+  dash.draw('win-label', (e) => { e.textContent = WIN[win()]; });
+
+  dash.draw('balance', (e) => { const a = dash.data('account'); e.textContent = a.status === 'ok' && a.data[0] ? n(a.data[0].balance) : '—'; });
+  dash.draw('balance-at', (e) => { const a = dash.data('account'); e.textContent = a.status === 'ok' && a.data[0] && a.data[0].balance_at ? when(a.data[0].balance_at) : 'the first job'; });
+
+  dash.draw('leader', (e) => {
+    const d = dash.data('editors'), w = win();
+    e.replaceChildren();
+    if (d.status !== 'ok') { e.textContent = '—'; return; }
+    const rows = d.data.filter((r) => r.window === w);
+    const total = rows.reduce((s, r) => s + r.usd, 0);
+    const top = rows[0];
+    if (!top || top.credits <= 0) { e.textContent = 'No Kie jobs logged ' + WIN[w] + ' yet.'; return; }
+    const b1 = el('b', null, usd(total)); b1.dataset.source = 'totals'; b1.dataset.where = 'window=' + enc(w); b1.dataset.field = 'usd';
+    const b2 = el('b', null, usd(top.usd)); b2.dataset.source = 'editors'; b2.dataset.where = 'window=' + enc(w) + '&person=' + enc(top.person); b2.dataset.field = 'usd';
+    e.append(b1, ' spent on Kie ' + WIN[w] + '. ' + top.person + ' used the most, ', b2, '.');
+  });
+
+  dash.draw('tot', (e) => {
+    const d = dash.data('totals'), w = win(), f = e.dataset.field;
+    e.dataset.where = 'window=' + enc(w);
+    const row = d.status === 'ok' ? d.data.find((r) => r.window === w) : null;
+    e.textContent = !row ? '—' : f === 'usd' ? usd(row.usd) : n(row[f]);
+  });
+
+  dash.draw('gap', (e) => {
+    const a = dash.data('account');
+    const v = a.status === 'ok' && a.data[0] ? a.data[0].unlogged : null;
+    e.textContent = v === null ? '—' : n(v);
+    e.classList.toggle('tn-gap-warn', v !== null && Math.abs(v) > 50);
+  });
+
+  dash.draw('editor-rows', (tbody) => {
+    tbody.replaceChildren();
+    const d = dash.data('editors'), w = win();
+    if (d.status !== 'ok') return;
+    const rows = d.data.filter((r) => r.window === w);
+    if (!rows.length) { const tr = el('tr'); const td = el('td', 'tn-msg', 'No editors yet. Add each key ID and name to the Keys tab.'); td.colSpan = 4; tr.append(td); tbody.append(tr); return; }
+    const max = rows[0].credits || 1;
+    rows.forEach((r) => {
+      const tr = el('tr');
+      tr.dataset.key = enc(r.window) + ',' + enc(r.person);
+      if (r.credits > 0 && r.rank <= 3) tr.classList.add('tn-r' + r.rank);
+      const rk = el('td', 'tn-rank'); rk.append(el('span', 'tn-badge', String(r.rank))); tr.append(rk);
+      const c = el('td');
+      const w2 = who(r.person, d3.format(',')(r.tasks) + (r.tasks === 1 ? ' job' : ' jobs') + (r.failed ? ' · ' + r.failed + ' failed' : '') + (r.last_used ? ' · last ' + when(r.last_used) : ''));
+      const bar = el('span', 'tn-bar'); const fill = el('span'); fill.style.width = (100 * r.credits / max) + '%'; bar.append(fill);
+      w2.querySelector('.tn-who-text').append(bar);
+      c.append(w2); tr.append(c);
+      tr.append(el('td', 'num tn-val-sm', n(r.credits)));
+      tr.append(el('td', 'num tn-val', usd(r.usd)));
+      tbody.append(tr);
+    });
+  });
+
+  dash.draw('model-rows', (tbody) => {
+    tbody.replaceChildren();
+    const d = dash.data('models'), w = win();
+    if (d.status !== 'ok') return;
+    const rows = d.data.filter((r) => r.window === w);
+    if (!rows.length) { const tr = el('tr'); const td = el('td', 'tn-msg', 'No jobs ' + WIN[w] + ' yet.'); td.colSpan = 4; tr.append(td); tbody.append(tr); return; }
+    rows.forEach((r) => {
+      const tr = el('tr'); tr.dataset.key = enc(r.window) + ',' + enc(r.model);
+      tr.append(el('td', 'tn-model', r.model));
+      tr.append(el('td', 'num', d3.format(',')(r.tasks)));
+      tr.append(el('td', 'num', usd3(r.avg_usd)));
+      tr.append(el('td', 'num tn-val-sm', usd(r.usd)));
+      tbody.append(tr);
+    });
+  });
+
+  dash.draw('editor-model-rows', (tbody) => {
+    tbody.replaceChildren();
+    const d = dash.data('editor_models'), w = win();
+    if (d.status !== 'ok') return;
+    const rows = d.data.filter((r) => r.window === w);
+    if (!rows.length) { const tr = el('tr'); const td = el('td', 'tn-msg', 'No jobs ' + WIN[w] + ' yet.'); td.colSpan = 5; tr.append(td); tbody.append(tr); return; }
+    rows.forEach((r) => {
+      const tr = el('tr'); tr.dataset.key = enc(r.window) + ',' + enc(r.person) + ',' + enc(r.model);
+      const c = el('td'); c.append(who(r.person)); tr.append(c);
+      tr.append(el('td', 'tn-model', r.model));
+      tr.append(el('td', 'num', d3.format(',')(r.tasks)));
+      tr.append(el('td', 'num', n(r.credits)));
+      tr.append(el('td', 'num tn-val-sm', usd(r.usd)));
+      tbody.append(tr);
+    });
+  });
+
+  dash.draw('recent-rows', (tbody) => {
+    tbody.replaceChildren();
+    const d = dash.data('log');
+    if (d.status !== 'ok') return;
+    if (!d.data.length) { const tr = el('tr'); const td = el('td', 'tn-msg', 'No Kie jobs logged yet. Jobs show here as soon as an editor runs one through the kie tool.'); td.colSpan = 6; tr.append(td); tbody.append(tr); return; }
+    [...d.data].sort((a, b) => b.time.localeCompare(a.time)).slice(0, 25).forEach((r) => {
+      const tr = el('tr'); tr.dataset.key = enc(r.task_id);
+      tr.append(el('td', null, when(r.time)));
+      const c = el('td'); c.append(who(r.person)); tr.append(c);
+      tr.append(el('td', 'tn-model', r.model));
+      const s = el('td'); s.append(el('span', 'tn-pill ' + (r.state === 'success' ? 'ok' : r.state === 'fail' ? 'bad' : ''), r.state === 'success' ? 'Done' : r.state === 'fail' ? 'Failed' : r.state)); tr.append(s);
+      tr.append(el('td', 'num', n(r.credits)));
+      tr.append(el('td', 'tn-model', r.task_id));
+      tbody.append(tr);
+    });
+  });
+</script>
+
+<script>
+  const PALETTE = ['#e29709', '#19150f', '#2ea043', '#c4432b', '#8a6d3b', '#4a7fb5', '#b97a06', '#7a5c9e'];
+  const colorFor = (names) => { const m = new Map(); names.forEach((x, i) => m.set(x, PALETTE[i % PALETTE.length])); return m; };
+
+  dash.draw('daily-legend', (e) => {
+    const d = dash.data('daily');
+    e.replaceChildren();
+    if (d.status !== 'ok') return;
+    const people = [...new Set(d.data.map((r) => r.person))].sort();
+    const col = colorFor(people);
+    people.forEach((p) => { const s = document.createElement('span'); const i = document.createElement('i'); i.style.background = col.get(p); s.append(i, document.createTextNode(p)); e.append(s); });
+  });
+
+  const drawDaily = (e) => {
+    if (!e.kcWatch && window.ResizeObserver) {   // redraw at the new width so text never scales with the box
+      e.kcWatch = new ResizeObserver(() => { if (Math.abs(e.clientWidth - (e.kcW || 0)) > 4) drawDaily(e); });
+      e.kcWatch.observe(e);
+    }
+    e.kcW = e.clientWidth;
+    const d = dash.data('daily');
+    if (d.status !== 'ok') { e.textContent = d.status === 'error' ? 'Failed to load' : '—'; return; }
+    e.replaceChildren();
+    const fmt = window.tnKie;
+    const today = new Intl.DateTimeFormat('en-CA', {timeZone: 'Australia/Sydney'}).format(new Date());
+    const days = d3.range(29, -1, -1).map((k) => { const t = new Date(today + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() - k); return t.toISOString().slice(0, 10); });
+    const people = [...new Set(d.data.map((r) => r.person))].sort();
+    const col = colorFor(people);
+    const table = days.map((day) => { const o = {day}; people.forEach((p) => { o[p] = 0; }); return o; });
+    const idx = new Map(days.map((x, i) => [x, i]));
+    d.data.forEach((r) => { if (idx.has(r.day)) table[idx.get(r.day)][r.person] += r.usd; });
+    const series = d3.stack().keys(people)(table);
+    const W = Math.max(280, e.clientWidth - 32), H = 220, m = {top: 8, right: 4, bottom: 22};
+    const maxY = d3.max(table, (o) => d3.sum(people, (p) => o[p])) || 1;
+    const y = d3.scaleLinear().domain([0, maxY]).nice().range([H - m.bottom, m.top]);
+    const svg = d3.select(e).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', 'USD spent on Kie per day for the last 30 days, stacked by editor. Highest day: ' + fmt.usd(maxY) + '.');
+    const yAxis = svg.append('g').call(d3.axisLeft(y).ticks(4).tickFormat((v) => '$' + d3.format('~s')(v)));
+    const left = (d3.max(yAxis.selectAll('text').nodes(), (t) => t.getComputedTextLength()) || 0) + 14;
+    yAxis.attr('transform', `translate(${left},0)`);
+    yAxis.select('.domain').remove();
+    yAxis.selectAll('.tick line').attr('x2', W - left - m.right).style('stroke', '#ece3d2');
+    const x = d3.scaleBand().domain(days).range([left, W - m.right]).padding(0.2);
+    const step = Math.ceil(30 / Math.max(2, Math.floor((W - left) / 64)));
+    const dayFmt = (s) => d3.utcFormat('%-d %b')(new Date(s + 'T00:00:00Z'));
+    const xAxis = svg.append('g').attr('transform', `translate(0,${H - m.bottom})`)
+      .call(d3.axisBottom(x).tickValues(days.filter((x2, i) => (29 - i) % step === 0)).tickFormat(dayFmt).tickSize(0).tickPadding(8));
+    xAxis.select('.domain').style('stroke', '#d9cbb0');
+    const tip = d3.select(e).append('div').attr('class', 'tn-tip').style('display', 'none');
+    svg.append('g').selectAll('g').data(series).join('g').style('fill', (s) => col.get(s.key))
+      .selectAll('rect').data((s) => s).join('rect')
+      .attr('x', (v) => x(v.data.day)).attr('width', x.bandwidth()).attr('rx', 1.5)
+      .attr('y', (v) => y(v[1])).attr('height', (v) => Math.max(0, y(v[0]) - y(v[1])));
+    svg.append('g').selectAll('rect').data(table).join('rect')
+      .attr('x', (o) => x(o.day) - x.step() * x.paddingInner() / 2).attr('width', x.step()).attr('y', m.top).attr('height', H - m.bottom - m.top)
+      .style('fill', 'transparent')
+      .on('pointerenter pointermove', (ev, o) => {
+        const total = d3.sum(people, (p) => o[p]);
+        tip.style('display', null); tip.node().replaceChildren();
+        tip.append('strong').text(dayFmt(o.day) + ': ' + fmt.usd(total));
+        people.filter((p) => o[p] > 0).forEach((p) => tip.append('div').text(p + ': ' + fmt.usd(o[p])));
+        const [px, py] = d3.pointer(ev, e);
+        const tw = tip.node().offsetWidth;
+        tip.style('left', Math.min(Math.max(0, px + 12), e.clientWidth - tw) + 'px').style('top', Math.max(0, py - 44) + 'px');
+      })
+      .on('pointerleave', () => tip.style('display', 'none'));
+    if (!d.data.length) svg.append('text').attr('x', (left + W) / 2).attr('y', H / 2).attr('text-anchor', 'middle').text('No Kie jobs in the last 30 days yet');
+  };
+  dash.draw('daily-chart', drawDaily);
+</script>
+
+</body></html>
