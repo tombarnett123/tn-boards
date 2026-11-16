@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<title>Editor scorecard</title>
+<style>html,body{margin:0;background:#fbf7ef} .tn{border-radius:0!important}</style>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script>window.DASH_CONFIG = {page:'scorecard',datasets:{editor_kpis:'data/sc_kpis.bin',editor_deadlines:'data/sc_deadlines.bin',editor_late:'data/sc_late.bin',editor_tasks:'data/sc_tasks.bin'},defaults:{}};</script>
+<script src="dash.js"></script>
+</head><body>
+
+<meta name="dash-one-writer">
+<link rel="stylesheet" href="editor.css">
+<style>
+  /* Same tokens, type and band as the Editor and Creative Strategist dashboards. Layout: verdict band, one ring per KPI for the team, one card per person (furthest behind first), then the late list and task log. */
+  #dash-root { --dash-gutter: 0; }
+  .tn {
+    --tn-black: #19150f; --tn-orange: #e29709; --tn-orange-dark: #b97a06; --tn-sand: #e8dac0; --tn-cream: #f6eedf;
+    --tn-page: #fbf7ef; --tn-card: #ffffff; --tn-line: #ece3d2; --tn-tint: #f3ebdc; --tn-ink: #222222; --tn-muted: rgba(34, 34, 34, .62);
+    --tn-ok: #2ea043; --tn-ok-bg: #e3f4e6; --tn-bad: #cf222e; --tn-bad-bg: #fde7e7; --tn-open-bg: #fdf0d5; --tn-none: #d9d0c0;
+    --tn-head: 'Oswald', 'Arial Narrow', Impact, sans-serif; --tn-body: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
+    font-family: var(--tn-body); color: var(--tn-ink); background: var(--tn-page); line-height: 1.4;
+  }
+  .tn-band { background: var(--tn-black); color: var(--tn-cream); padding: 22px max(16px, 3vw) 26px; display: flex; flex-direction: column; gap: 12px; }
+  .tn-logo { width: 136px; height: 57px; background-repeat: no-repeat; background-position: left center; background-size: contain; }
+  .tn-title { margin: 4px 0 0; font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; font-size: clamp(36px, 7vw, 60px); line-height: .95; letter-spacing: .01em; text-wrap: balance; color: var(--tn-cream); }
+  .tn-sub-band { margin: 0; font-size: 16px; color: var(--tn-cream); }
+  .sc-verdict { margin: 0; font-size: 18px; font-weight: 600; max-width: 62rem; }
+  .sc-verdict b { font-family: var(--tn-head); font-weight: 700; letter-spacing: .02em; font-size: 22px; }
+  .sc-verdict .sc-red { color: #ff8a80; } .sc-verdict .sc-green { color: #7ee2a0; } .sc-verdict .sc-orange { color: var(--tn-orange); }
+  .tn-window { margin: 0; color: var(--tn-sand); font-size: 14px; }
+  .tn-tag { align-self: flex-start; font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--tn-black); background: var(--tn-orange); border-radius: 3px; padding: 3px 8px; }
+
+  .tn-bar-wrap { position: sticky; top: 0; z-index: 3; background: var(--tn-page); border-bottom: 1px solid var(--tn-line); padding: 12px max(16px, 3vw); display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: end; }
+  .tn-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .tn-field > span { font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--tn-muted); }
+  .tn-field select { font: inherit; font-size: 14px; color: var(--tn-ink); background: var(--tn-card); border: 1px solid var(--tn-line); border-radius: 6px; padding: 0 10px; min-width: 0; height: 44px; }
+  .tn-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tn-tab { font-family: var(--tn-head); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 14px; line-height: 1.1; min-height: 44px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--tn-line); background: var(--tn-card); color: var(--tn-ink); cursor: pointer; }
+  .tn-tab[aria-pressed="true"] { background: var(--tn-black); border-color: var(--tn-black); color: var(--tn-cream); box-shadow: inset 0 -3px 0 var(--tn-orange); }
+  .tn-tab:focus-visible, .tn-field :focus-visible, .sc-link:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+  .tn-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .tn-name { font-weight: 600; }
+  .sc-wrap { padding: 22px max(16px, 3vw) 28px; display: flex; flex-direction: column; gap: 30px; }
+  .sc-sec { display: flex; flex-direction: column; gap: 14px; }
+  .sc-sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+  .sc-sec-head p { margin: 0; font-size: 13px; color: var(--tn-muted); }
+  .sc-h { margin: 0; font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; font-size: 24px; letter-spacing: .02em; line-height: 1.05; color: var(--tn-black); }
+  .sc-panel { background: var(--tn-card); border: 1px solid var(--tn-line); border-radius: 10px; box-shadow: 0 1px 2px rgba(25, 21, 15, .06); min-width: 0; }
+
+  /* Team: big ring + stat tiles */
+  .sc-team { display: grid; grid-template-columns: minmax(0, 300px) 1fr; gap: 16px; }
+  .sc-hero { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+  .sc-hero h3, .sc-stat h3 { margin: 0; font-family: var(--tn-head); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 14px; color: var(--tn-black); }
+  .sc-hero p { margin: 0; font-size: 13px; color: var(--tn-muted); }
+  .sc-ring { position: relative; width: 190px; height: 190px; }
+  .sc-ring svg { width: 100%; height: 100%; display: block; }
+  .sc-ring-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .sc-ring-mid b { font-family: var(--tn-head); font-weight: 700; font-size: 50px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .sc-ring-mid small { font-size: 12px; color: var(--tn-muted); margin-top: 4px; }
+  .sc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr)); gap: 12px; }
+  .sc-stat { padding: 16px; display: flex; flex-direction: column; gap: 6px; border-top: 5px solid var(--tn-none); }
+  .sc-stat.is-hit { border-top-color: var(--tn-ok); } .sc-stat.is-miss { border-top-color: var(--tn-bad); } .sc-stat.is-open { border-top-color: var(--tn-orange); }
+  .sc-stat .sc-big { font-family: var(--tn-head); font-weight: 700; font-size: 40px; line-height: 1; color: var(--tn-black); font-variant-numeric: tabular-nums; }
+  .sc-stat .sc-big.is-miss { color: var(--tn-bad); } .sc-stat .sc-big.is-hit { color: #1a7f37; }
+  .sc-stat p { margin: 0; font-size: 12.5px; color: var(--tn-muted); }
+  .is-miss-t { color: var(--tn-bad); } .is-hit-t { color: #1a7f37; } .is-open-t { color: var(--tn-orange-dark); } .is-none-t { color: var(--tn-muted); }
+
+  /* Ranking: one bar per person, pass mark line */
+  .sc-rank { padding: 6px 16px 10px; overflow-x: auto; }
+  .sc-rrow { display: grid; grid-template-columns: minmax(8.5rem, 11rem) 1fr 4.2rem minmax(6rem, 8rem); align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--tn-line); cursor: pointer; }
+  .sc-rrow:last-child { border-bottom: 0; }
+  .sc-rrow:hover { background: #fffaf0; }
+  .sc-rrow:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+  .sc-rrow.tn-mine { box-shadow: inset 4px 0 0 var(--tn-orange); background: rgba(226, 151, 9, .08); }
+  .sc-bar { position: relative; height: 22px; border-radius: 4px; background: var(--tn-tint); overflow: visible; }
+  .sc-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+  .sc-bar-fill.is-hit { background: var(--tn-ok); } .sc-bar-fill.is-miss { background: var(--tn-bad); } .sc-bar-fill.is-open { background: var(--tn-ok); }
+  .sc-bar-pass { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 2px dashed var(--tn-black); opacity: .55; }
+  .sc-bar-none { position: absolute; inset: 0; display: flex; align-items: center; padding-left: 8px; font-size: 12px; color: var(--tn-muted); }
+  .sc-pct { font-family: var(--tn-head); font-weight: 700; font-size: 22px; text-align: right; font-variant-numeric: tabular-nums; }
+  .sc-rmeta { font-size: 12.5px; color: var(--tn-muted); line-height: 1.3; }
+  .sc-rmeta b { color: var(--tn-bad); font-weight: 700; }
+  .sc-rank-key { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 0 2px; font-size: 12px; color: var(--tn-muted); }
+  .sc-rank-key i { display: inline-block; width: 14px; height: 0; border-top: 2px dashed var(--tn-black); vertical-align: middle; margin-right: 6px; opacity: .6; }
+
+  /* Person cards */
+  .sc-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr)); gap: 16px; }
+  .sc-person { padding: 16px; display: flex; flex-direction: column; gap: 14px; border-left: 6px solid var(--tn-none); cursor: pointer; }
+  .sc-person.is-miss { border-left-color: var(--tn-bad); } .sc-person.is-hit { border-left-color: var(--tn-ok); } .sc-person.is-open { border-left-color: var(--tn-orange); }
+  .sc-person.tn-mine { box-shadow: 0 0 0 3px var(--tn-orange); }
+  .sc-person:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+  .sc-p-head { display: flex; align-items: center; gap: 12px; }
+  .sc-p-head .tn-avatar { width: 50px; height: 50px; font-size: 16px; }
+  .sc-p-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .sc-p-name b { font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; font-size: 22px; letter-spacing: .02em; line-height: 1; color: var(--tn-black); }
+  .sc-pill { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--tn-tint); color: var(--tn-muted); }
+  .sc-pill.is-miss { background: var(--tn-bad-bg); color: var(--tn-bad); } .sc-pill.is-hit { background: var(--tn-ok-bg); color: #1a7f37; } .sc-pill.is-open { background: var(--tn-open-bg); color: var(--tn-orange-dark); }
+  .sc-p-pct { text-align: right; }
+  .sc-p-pct b { display: block; font-family: var(--tn-head); font-weight: 700; font-size: 38px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .sc-p-pct small { font-size: 11.5px; color: var(--tn-muted); }
+  .sc-kind { display: flex; flex-direction: column; gap: 7px; border-top: 1px solid var(--tn-line); padding-top: 10px; }
+  .sc-kind-head { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+  .sc-kind-head span:first-child { font-weight: 700; }
+  .sc-kind-head span:last-child { color: var(--tn-muted); }
+  .sc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sc-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 28px; padding: 0 9px; border-radius: 6px; font-family: var(--tn-head); font-weight: 600; font-size: 14px; letter-spacing: .02em; text-decoration: none; font-variant-numeric: tabular-nums; }
+  .sc-chip.is-ok { background: var(--tn-ok-bg); color: #1a7f37; }
+  .sc-chip.is-late { background: var(--tn-bad-bg); color: var(--tn-bad); }
+  .sc-chip.is-open { background: var(--tn-bad); color: #fff; }
+  .sc-chip:hover { filter: brightness(.95); }
+  .sc-chip:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+  .sc-nochips { font-size: 12.5px; color: var(--tn-muted); }
+  .sc-count { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; border-top: 1px solid var(--tn-line); padding-top: 10px; font-size: 13px; }
+  .sc-count b { font-family: var(--tn-head); font-weight: 600; font-size: 16px; font-variant-numeric: tabular-nums; }
+  .sc-count .sc-mini { grid-column: 1 / -1; height: 8px; border-radius: 4px; background: var(--tn-tint); position: relative; overflow: hidden; }
+  .sc-count .sc-mini i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--tn-black); }
+  .sc-count .sc-mini i.is-hit { background: var(--tn-ok); }
+  .sc-trend { display: flex; align-items: flex-end; gap: 10px; border-top: 1px solid var(--tn-line); padding-top: 10px; }
+  .sc-trend > span { font-size: 12px; color: var(--tn-muted); width: 5.5rem; flex: 0 0 auto; align-self: center; }
+  .sc-cols { flex: 1; display: flex; align-items: flex-end; gap: 6px; height: 44px; position: relative; }
+  .sc-cols .sc-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 2px; }
+  .sc-cols .sc-col i { width: 100%; max-width: 26px; border-radius: 3px 3px 0 0; background: var(--tn-none); min-height: 3px; }
+  .sc-cols .sc-col i.is-hit { background: var(--tn-ok); } .sc-cols .sc-col i.is-miss { background: var(--tn-bad); } .sc-cols .sc-col i.is-open { background: var(--tn-orange); }
+  .sc-cols .sc-col.is-sel i { box-shadow: 0 0 0 2px var(--tn-black); }
+  .sc-cols .sc-col em { font-style: normal; font-size: 10px; color: var(--tn-muted); }
+  .sc-p-foot { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--tn-muted); border-top: 1px solid var(--tn-line); padding-top: 10px; }
+  .sc-p-foot b { color: var(--tn-black); font-weight: 700; }
+  .sc-p-foot b.is-bad { color: var(--tn-bad); }
+  .sc-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12.5px; color: var(--tn-muted); align-items: center; }
+  .sc-legend .sc-chip { min-width: 0; height: 22px; font-size: 12px; padding: 0 7px; }
+
+  /* Every person x every KPI */
+  .sc-mrow { display: grid; grid-template-columns: minmax(7.5rem, 1.1fr) minmax(8rem, 1.4fr) repeat(var(--cells), minmax(5.4rem, 1fr)) minmax(5.4rem, 1fr) minmax(4.6rem, .8fr); align-items: center; gap: 10px; padding: 10px 6px; border-bottom: 1px solid var(--tn-line); cursor: pointer; border-radius: 6px; }
+  .sc-mrow:last-child { border-bottom: 0; }
+  .sc-mrow:not(.sc-mhead):hover { background: #fffaf0; }
+  .sc-mrow:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+  .sc-mrow.tn-mine { box-shadow: inset 4px 0 0 var(--tn-orange); background: rgba(226, 151, 9, .08); }
+  .sc-mhead { cursor: default; font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .07em; font-size: 11.5px; color: var(--tn-muted); padding-top: 4px; }
+  .sc-mc-h { text-align: center; display: flex; flex-direction: column; gap: 1px; }
+  .sc-mc-h small { font-family: var(--tn-body); text-transform: none; letter-spacing: 0; font-size: 10.5px; }
+  .sc-all { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; }
+  .sc-all .sc-pct { font-size: 20px; min-width: 3.2rem; }
+  .sc-mc { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 52px; border-radius: 8px; background: var(--tn-tint); padding: 4px; text-align: center; }
+  .sc-mc b { font-family: var(--tn-head); font-weight: 700; font-size: 21px; line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--tn-black); }
+  .sc-mc small { font-size: 11px; color: var(--tn-muted); font-weight: 600; }
+  .sc-mc.is-miss { background: var(--tn-bad-bg); } .sc-mc.is-miss b { color: var(--tn-bad); }
+  .sc-mc.is-hit { background: var(--tn-ok-bg); } .sc-mc.is-hit b { color: #1a7f37; }
+  .sc-mc.is-open { background: var(--tn-open-bg); }
+  .sc-mc .sc-mc-late { color: var(--tn-bad); }
+  .sc-rule { margin: -2px 0 2px !important; font-size: 11.5px !important; }
+  .sc-stat .sc-big small { font-size: 18px; color: var(--tn-muted); font-weight: 500; }
+  .sc-latebig { font-size: 13px; color: var(--tn-ink); }
+  .sc-latebig b { font-family: var(--tn-head); font-weight: 700; font-size: 20px; color: var(--tn-bad); }
+  .sc-hchip.is-open { background: var(--tn-bad); color: #fff; }
+  .sc-tcard.is-late-soft { border-left-color: var(--tn-bad); }
+
+  .sc-mteam { cursor: default; background: var(--tn-cream); border-bottom: 2px solid var(--tn-black) !important; margin-bottom: 4px; }
+  .sc-mteam:hover { background: var(--tn-cream) !important; }
+  .sc-mteam .tn-name { font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; letter-spacing: .03em; font-size: 16px; }
+  .sc-team-badge { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: var(--tn-black); color: var(--tn-orange); display: inline-flex; align-items: center; justify-content: center; font-family: var(--tn-head); font-weight: 700; font-size: 10px; letter-spacing: .05em; }
+  .sc-pctwrap { display: flex; flex-direction: column; align-items: flex-end; min-width: 3.4rem; }
+  .sc-trend-t { font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .sc-trend-t.is-up { color: #1a7f37; } .sc-trend-t.is-down { color: var(--tn-bad); }
+  .sc-sub { margin: -8px 0 0; font-size: 13px; color: var(--tn-muted); }
+  .tn-window { font-size: 12.5px; }
+
+  /* Load */
+  .sc-loads { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12.5rem), 1fr)); gap: 12px; }
+  .sc-load { padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; cursor: pointer; }
+  .sc-load:hover { box-shadow: 0 3px 10px rgba(25, 21, 15, .12); }
+  .sc-load:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+  .sc-load.tn-mine { box-shadow: 0 0 0 3px var(--tn-orange); }
+  .sc-load.is-over { border-color: var(--tn-bad); }
+  .sc-load-head { display: flex; align-items: center; gap: 10px; align-self: stretch; }
+  .sc-load-head .tn-avatar { width: 40px; height: 40px; }
+  .sc-load-name { font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; font-size: 20px; letter-spacing: .02em; color: var(--tn-black); }
+  .sc-tags { display: flex; flex-wrap: wrap; gap: 4px; align-self: stretch; }
+  .sc-xtag { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--tn-black); color: var(--tn-cream); }
+  .sc-xtag.is-okay { background: transparent; color: var(--tn-black); box-shadow: inset 0 0 0 1px var(--tn-black); }
+  .sc-load-ring { width: 136px; height: 136px; }
+  .sc-load-ring .sc-ring-mid b { font-size: 44px; }
+  .sc-load-used { margin: 0; font-size: 12.5px; color: var(--tn-muted); }
+  .sc-mix, .sc-room-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+  .sc-mixchip { font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: var(--tn-tint); }
+  .sc-mixchip.is-warn { background: var(--tn-open-bg); color: var(--tn-orange-dark); }
+  .sc-room { align-self: stretch; border-top: 1px solid var(--tn-line); padding-top: 8px; display: flex; flex-direction: column; gap: 5px; }
+  .sc-room-lbl { font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--tn-muted); }
+  .sc-roomchip { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--tn-ok-bg); color: #1a7f37; }
+  .sc-roomchip.is-fit { background: #1a7f37; color: #fff; }
+  .sc-owed { margin: 0; font-size: 12px; font-weight: 700; color: var(--tn-bad); }
+  .sc-key { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--tn-muted); align-items: center; }
+  .sc-key b { color: var(--tn-black); }
+
+  .sc-podbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px max(16px, 3vw); background: var(--tn-page); border-bottom: 1px solid var(--tn-line); }
+  .sc-podbar > span { font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--tn-muted); }
+
+  /* Board */
+  .sc-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sc-pick { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--tn-line); background: var(--tn-card); color: var(--tn-ink); font: inherit; cursor: pointer; }
+  .sc-pick:first-child { padding-left: 14px; }
+  .sc-pick .tn-avatar { width: 34px; height: 34px; font-size: 12px; }
+  .sc-pick-name { font-weight: 700; font-size: 14px; }
+  .sc-pick-meta { display: flex; flex-direction: column; font-size: 11px; line-height: 1.2; color: var(--tn-muted); text-align: left; }
+  .sc-pick-meta b { color: var(--tn-bad); }
+  .sc-pick.is-on { background: var(--tn-black); border-color: var(--tn-black); color: var(--tn-cream); box-shadow: inset 0 -3px 0 var(--tn-orange); }
+  .sc-pick.is-on .sc-pick-meta { color: var(--tn-sand); } .sc-pick.is-on .sc-pick-meta b { color: #ff8a80; }
+  .sc-pick:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+  .sc-board { display: grid; grid-template-columns: repeat(6, minmax(210px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 6px; align-items: start; scroll-snap-type: x proximity; }
+  .sc-col-b { background: var(--tn-tint); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 10px; min-width: 0; scroll-snap-align: start; border-top: 4px solid var(--tn-none); }
+  .sc-col-b.has-late { border-top-color: var(--tn-bad); }
+  .sc-col-head { display: flex; align-items: center; gap: 8px; }
+  .sc-col-name { font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: 15px; color: var(--tn-black); }
+  .sc-col-n { font-size: 12px; font-weight: 700; color: var(--tn-muted); background: var(--tn-card); border-radius: 999px; padding: 1px 8px; }
+  .sc-col-late { margin-left: auto; font-size: 12px; font-weight: 700; color: #fff; background: var(--tn-bad); border-radius: 999px; padding: 2px 8px; }
+  .sc-col-list { display: flex; flex-direction: column; gap: 8px; max-height: 780px; overflow-y: auto; }
+  .sc-empty { margin: 4px 2px; font-size: 12.5px; color: var(--tn-muted); }
+  .sc-tcard { display: flex; flex-direction: column; gap: 6px; padding: 10px 10px 10px 12px; background: var(--tn-card); border-radius: 8px; border-left: 4px solid transparent; box-shadow: 0 1px 2px rgba(25, 21, 15, .08); color: var(--tn-ink); text-decoration: none; }
+  .sc-tcard:hover { box-shadow: 0 3px 10px rgba(25, 21, 15, .14); }
+  .sc-tcard:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+  .sc-tcard.is-late { border-left-color: var(--tn-bad); background: #fff5f4; }
+  .sc-tcard.was-late { border-left-color: #f2a9a6; }
+  .sc-tc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .sc-tc-code { font-family: var(--tn-head); font-weight: 700; font-size: 16px; letter-spacing: .02em; color: var(--tn-black); }
+  .sc-tc-top .tn-avatar { width: 24px; height: 24px; font-size: 9px; }
+  .sc-tc-angle { font-size: 12px; color: var(--tn-muted); line-height: 1.3; }
+  .sc-tc-why { font-size: 12px; font-weight: 600; color: var(--tn-bad); margin-top: -2px; }
+  .sc-tag { align-self: flex-start; font-size: 12.5px; font-weight: 700; padding: 3px 9px; border-radius: 6px; background: var(--tn-tint); color: var(--tn-muted); }
+  .sc-tag.is-late { background: var(--tn-bad); color: #fff; font-family: var(--tn-head); font-size: 17px; letter-spacing: .02em; padding: 3px 10px; }
+  .sc-tag.is-soon { background: var(--tn-open-bg); color: var(--tn-orange-dark); }
+  .sc-tag.is-done { background: var(--tn-ok-bg); color: #1a7f37; }
+  .sc-tag.is-wait { background: transparent; padding: 0; font-weight: 600; }
+  .sc-hist-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .sc-hchip { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+  .sc-hchip.is-late { background: var(--tn-bad-bg); color: var(--tn-bad); }
+  .sc-hchip.is-ok { background: var(--tn-ok-bg); color: #1a7f37; }
+  .sc-more { font: inherit; font-size: 13px; font-weight: 700; min-height: 40px; border-radius: 6px; border: 1px dashed var(--tn-muted); background: transparent; color: var(--tn-ink); cursor: pointer; }
+  .sc-legend .sc-tag, .sc-legend .sc-hchip { font-size: 11.5px; padding: 2px 7px; }
+  .sc-sec-head .tn-tabs .tn-tab { min-height: 38px; font-size: 13px; }
+  .tn-card { background: var(--tn-card); border: 1px solid var(--tn-line); border-radius: 8px; min-width: 0; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(25, 21, 15, .06); }
+  .tn-card-head { padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 3px solid var(--tn-orange); }
+  .tn-card h2 { margin: 0; font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; font-size: 22px; letter-spacing: .02em; line-height: 1.05; color: var(--tn-black); }
+  .tn-note { margin: 0; color: var(--tn-muted); font-size: 12.5px; }
+  .sc-x { overflow-x: auto; }
+  .sc-scroll { max-height: 560px; overflow: auto; }
+
+  .tn-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .tn-table th { position: sticky; top: 0; z-index: 1; background: var(--tn-card); text-align: left; font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--tn-muted); padding: 10px 12px 8px; border-bottom: 1px solid var(--tn-line); white-space: nowrap; }
+  .tn-table td { padding: 10px 12px; border-bottom: 1px solid var(--tn-line); vertical-align: middle; }
+  .tn-table tr:last-child td { border-bottom: 0; }
+  .tn-table .num { text-align: right; }
+  .tn-table .ctr { text-align: center; }
+  .tn-avatar { position: relative; flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: var(--tn-black); color: var(--tn-cream); display: inline-flex; align-items: center; justify-content: center; font-family: var(--tn-head); font-weight: 500; font-size: 13px; letter-spacing: .03em; }
+
+  .tn-avatar[data-i]::after { content: attr(data-i); }
+  .sc-link { color: var(--tn-black); font-weight: 600; text-decoration: underline; text-decoration-color: var(--tn-orange); text-underline-offset: 3px; }
+  .sc-hours { font-family: var(--tn-head); font-weight: 700; font-size: 17px; color: var(--tn-bad); }
+  .sc-res-late { color: var(--tn-bad); font-weight: 700; }
+  .sc-res-ok { color: #1a7f37; font-weight: 600; }
+  .sc-res-muted { color: var(--tn-muted); }
+  .tn-msg { margin: 0; padding: 18px 16px; color: var(--tn-muted); font-size: 13px; }
+  .sc-foot { background: var(--tn-card); border: 1px solid var(--tn-line); border-radius: 8px; padding: 0 16px; }
+  .sc-foot summary { cursor: pointer; padding: 14px 0; font-family: var(--tn-head); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 15px; color: var(--tn-black); }
+  .sc-foot dl { margin: 0 0 16px; display: grid; grid-template-columns: minmax(9rem, max-content) 1fr; gap: 8px 18px; font-size: 13px; }
+  .sc-foot dt { font-weight: 700; }
+  .sc-foot dd { margin: 0; }
+  [data-dash-source-state=refreshing] { opacity: .5; transition: opacity .3s; }
+  [data-dash-source-state=empty] { color: transparent; }
+  @media (max-width: 760px) {
+    .tn { font-size: 14px; }
+    .tn-band { padding: 18px 16px 20px; gap: 10px; }
+    .tn-logo { width: 104px; height: 44px; }
+    .tn-bar-wrap { position: static; }
+    .sc-wrap { padding: 14px 16px 20px; gap: 24px; }
+    .sc-team { grid-template-columns: 1fr; }
+    .sc-ring { width: 150px; height: 150px; }
+    .sc-ring-mid b { font-size: 40px; }
+    .sc-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sc-stat { padding: 12px; } .sc-stat .sc-big { font-size: 30px; }
+    .sc-rank { padding: 4px 12px 8px; }
+    .sc-mhead { display: none !important; }
+    .sc-mrow { grid-template-columns: 1fr 1fr; padding: 12px 4px; }
+    .sc-mrow > .tn-who, .sc-mrow > .sc-all { grid-column: 1 / -1; }
+    .sc-mc { min-height: 56px; }
+    .sc-mc::before { content: attr(data-label); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--tn-muted); }
+    .sc-rrow { grid-template-columns: 1fr auto; grid-template-areas: "who pct" "bar bar" "meta meta"; gap: 6px 10px; }
+    .sc-rrow > .tn-who { grid-area: who; } .sc-rrow > .sc-bar { grid-area: bar; } .sc-rrow > .sc-pct { grid-area: pct; } .sc-rrow > .sc-rmeta { grid-area: meta; }
+    .tn-table td { padding: 10px 8px; } .tn-table th { padding: 8px 8px 6px; }
+    .sc-hide-narrow { display: none; }
+    .sc-foot dl { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="tn" id="scorecard">
+  <section class="tn-band" id="top">
+    <div class="tn-logo tn-logo-img" role="img" aria-label="Tradesman Nutrition"></div>
+    <h1 class="tn-title">Editor scorecard</h1>
+    <p class="sc-verdict" data-draw="verdict" data-source="team">—</p>
+    <p class="tn-window">Updated <span data-draw="asof" data-source="editor_kpis">—</span> from ClickUp, Pods A and B.</p>
+  </section>
+  <div class="sc-podbar"><span>Show</span><div class="tn-tabs" data-draw="pods"></div></div>
+
+  <div class="sc-wrap">
+    <section class="sc-sec" id="load">
+      <div class="sc-sec-head"><h2 class="sc-h">Load this week</h2><p>Every editor has 100 points a week. Each brief uploaded this week uses points by type. Most room first.</p></div>
+      <div class="sc-loads" data-source="editor_tasks" data-row-key="id" data-draw="load"></div>
+      <div class="sc-key"><span>Points per brief:</span> <span><b>AI drama</b> 33 pts</span> <span><b>Pixar Suno song</b> 20 pts</span> <span><b>Pixar storytelling</b> 14 pts</span> <span><b>AI UGC</b> 10 pts</span> <span><b>AI VO + B-roll</b> 8 pts</span> <span><b>UGC edit</b> 7 pts</span> <span>Green = room for, solid green = what they are best at.</span></div>
+    </section>
+
+    <section class="sc-sec" id="ranking">
+      <div class="sc-sec-head"><h2 class="sc-h">Every editor, every KPI</h2><div class="tn-tabs" data-draw="weeks" data-source="editor_kpis">—</div></div>
+      <p class="sc-sub" data-draw="wk-lbl">—</p>
+      <div class="sc-panel sc-rank">
+        <div style="--cells: 4" data-source="people" data-row-key="person,week" data-draw="rank"></div>
+        <div class="sc-rank-key"><span><i></i>Target: 80% on time</span><span>▲▼ change on the week before.</span><span>Click a name to open their board.</span></div>
+      </div>
+    </section>
+
+    <section class="sc-sec" id="board">
+      <div class="sc-sec-head"><h2 class="sc-h">Board</h2><p>Every task, every week, by where it sits in ClickUp. Click a card to open it.</p></div>
+      <div class="sc-picker" data-draw="picker" data-source="editor_tasks"></div>
+      <div class="sc-legend">
+        <span class="sc-tag is-late">15h late</span>Late right now
+        <span class="sc-hchip is-late">Draft +17h</span>Was late earlier
+        <span>First drafts and revisions are timed from <b data-draw="since" data-source="editor_kpis">—</b>.</span>
+      </div>
+      <div class="sc-board" data-source="editor_tasks" data-row-key="id" data-draw="board"></div>
+    </section>
+
+    <details class="sc-foot" id="how">
+      <summary>How it is measured</summary>
+      <dl>
+        <dt>Deadlines</dt><dd>Three editor deadlines: the first draft (48 hours from the brief), each round of revisions (24 hours), and the video approved within 7 days of the brief. Each one is on time or late, and late ones show by how many hours.</dd>
+        <dt>Hitting deadlines</dt><dd>At least 80% of the week's deadlines on time. Under that is Falling behind. This week shows On track so far until it drops under 80%.</dd>
+        <dt>Which week</dt><dd>A deadline counts in the week it was due. One still not done counts as late straight away and keeps growing until it is done. This week also includes every late deadline from earlier weeks that is still not done, so it shows everything the editor still owes.</dd>
+        <dt>Videos approved</dt><dd>Videos the editor got to Approved that week. Target 7. Statics are not counted. Lance (mostly the Raptor batch in Pod C) has no target yet. Jen (statics) is not on this scorecard.</dd>
+        <dt>Where the times come from</dt><dd>ClickUp resets a task's due date each time it changes stage. An hourly check records when each task moves on. First drafts and revisions before tracking began cannot be timed.</dd>
+        <dt>Load</dt><dd>Each editor has 100 points a week. A brief costs 100 divided by how many of that type one editor could do in a week on its own: AI drama 3 a week (33 pts), Pixar Suno song 5 (20), Pixar storytelling 7 (14), AI UGC 10 (10), AI VO + B-roll 12 (8), UGC edit 15 (7). Points count in the week the brief was uploaded. The type comes from the format in the v4 task name: Realistic Movie Ad = AI drama, AI Song = Pixar Suno song, Animation = Pixar storytelling, Talking Head and Greenscreen = AI UGC, AI Voiceover, B-Roll+VO and Whiteboard = AI VO + B-roll, UGC = UGC edit. Any other format shows as Not pointed.</dd>
+        <dt>Left out</dt><dd>Pod C (the Raptor giveaway batch), Pod D, Content Production, and paused tasks.</dd>
+      </dl>
+    </details>
+  </div>
+</div>
+
+<script>
+  const CFG = {"kpis": "editor_kpis", "deadlines": "editor_deadlines", "late": "editor_late", "tasks": "editor_tasks", "main": "deadlines", "mainNoun": "deadlines", "ownStages": ["Brief ready", "In progress", "Revisions"], "personLabel": "Editor", "doneStatus": ["Approved", "Ready to launch", "Launched"], "openStatus": ["Brief ready", "In progress", "Cs review", "Revisions", "Tom review"], "rateKinds": [["first_draft", "First drafts", "Due 48h after the brief"], ["revisions", "Revisions", "Due 24h after each round"], ["approved_7d", "Approved in 7 days", "Approved within 7 days of the brief"]], "cells": [["first_draft", "First drafts", "rate", "48h"], ["revisions", "Revisions", "rate", "24h each"], ["approved_7d", "Approved in 7 days", "rate", "from the brief"], ["output", "Videos approved", "count", "7 a week", 7]], "counts": [["output", "Videos approved", 7]], "noTarget": ["Lance"], "everyone": "Every editor", "everyoneLower": "every editor", "order": ["Ady", "Aubrey", "James", "Ritchmond", "Rolling", "Lance"], "taskPerson": "editor", "pods": {"labels": {"A": "Pod A (Airidas)", "B": "Pod B (Josh)"}, "members": {"James": ["A", "B"], "Ritchmond": ["B"], "Aubrey": ["B"], "Lance": ["A"], "Ady": ["A"], "Rolling": ["A"]}}, "load": {"week": 100, "types": [["AI drama", 33.33], ["Pixar Suno song", 20.0], ["Pixar storytelling", 14.29], ["AI UGC", 10.0], ["AI VO + B-roll", 8.33], ["UGC edit", 6.67]], "experts": {"Aubrey": {"expert": ["AI VO + B-roll", "UGC edit"]}, "Ritchmond": {"expert": ["AI UGC (green screen)"]}, "Rolling": {"okay": ["Pixar storytelling", "AI UGC"]}, "Ady": {"expert": ["Pixar storytelling", "Pixar Suno song"]}, "Lance": {"expert": ["AI VO + B-roll", "UGC edit"]}}}, "pass": 80, "logCols": [{"field": "code"}, {"field": "editor"}, {"field": "brief_at", "kind": "date"}, {"field": "first_draft", "kind": "result"}, {"field": "first_draft_late_h", "kind": "lateh", "cls": "num"}, {"field": "revisions_late", "kind": "count", "bad": true, "cls": "num"}, {"field": "revision_rounds", "kind": "count", "cls": "num sc-hide-narrow"}, {"field": "days_to_approve", "kind": "days", "cls": "num sc-hide-narrow"}, {"field": "status", "cls": "sc-hide-narrow"}]};
+  const enc = encodeURIComponent;
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const FACES = new Set(['ady', 'aubrey', 'lance', 'ritchmond', 'james', 'rolling', 'tom']);
+  const avatar = (name) => {
+    const a = el('span', 'tn-avatar');
+    const k = String(name).toLowerCase();
+    if (FACES.has(k)) a.classList.add('tn-face', 'tn-face-' + k);
+    else a.dataset.i = String(name).slice(0, 2).toUpperCase();
+    a.setAttribute('aria-hidden', 'true');
+    return a;
+  };
+  const day = d3.timeFormat('%b %-d');
+  const parseWeek = (w) => new Date(w + 'T00:00:00');
+  const ok = (...ids) => ids.every((id) => dash.data(id).status === 'ok');
+  const lateTxt = (h) => d3.format(',')(Math.round(h)) + 'h';
+  const stOf = (pct, current) => (pct == null ? 'none' : pct < CFG.pass ? 'miss' : current ? 'open' : 'hit');
+  // Pod filter: all editors, or the editors in one pod (an editor can be in both).
+  const GROUPS = CFG.pods ? ['all', ...Object.keys(CFG.pods.labels)] : ['all'];
+  const membersOf = (g) => (g === 'all' || !CFG.pods ? CFG.order : CFG.order.filter((p) => (CFG.pods.members[p] || []).includes(g)));
+  const grp = () => (CFG.pods && GROUPS.includes(dash.params().pod) ? dash.params().pod : 'all');
+  const inGrp = (p) => membersOf(grp()).includes(p);
+  const taskInGrp = (t) => grp() === 'all' || t.pod === 'Pod ' + grp();
+  const grpLabel = () => (grp() === 'all' ? 'Whole team' : CFG.pods.labels[grp()]);
+  const mark = (node, src, field, where) => { node.dataset.source = src; node.dataset.field = field; if (where) node.dataset.where = where; return node; };
+
+  dash.calc('team', {
+    inputs: [CFG.kpis, CFG.deadlines, CFG.late, CFG.tasks],
+    title: 'Team per week',
+    description: 'For each week and KPI: the whole team\'s result. Deadline KPIs: deadlines on time out of deadlines due, as a %. Count KPIs: the team total against the combined target. Also the average hours late and how many tasks are late right now.',
+    fn: (kpis, dls, late, tasks) => {
+      const rows = [];
+      GROUPS.forEach((g) => {
+        const mem = membersOf(g);
+        const podOk = (t) => g === 'all' || t.pod === 'Pod ' + g;
+        const open = tasks.filter((t) => mem.includes(t[CFG.taskPerson]) && podOk(t) && !CFG.doneStatus.includes(t.status) && (!CFG.openStatus || CFG.openStatus.includes(t.status))).length;
+        const lateG = late.filter((r) => mem.includes(r.who) && (g === 'all' || r.pod === 'Pod ' + g));
+        const out = {};
+        kpis.filter((r) => mem.includes(r.person)).forEach((r) => {
+          const k = r.week + '|' + r.kpi;
+          const t = out[k] = out[k] || {group: g, week: r.week, kpi: r.kpi, kpi_label: r.kpi_label, value: 0, total: 0, people: 0, behind: [], current: r.current};
+          if (r.status === 'none' || r.status === 'info') { if (r.status === 'info') t.value += r.value; return; }
+          t.value += r.value; t.total += r.total; t.people += 1;
+          if (r.status === 'miss') t.behind.push(r.person);
+        });
+        Object.values(out).forEach((t) => {
+          const lateH = dls.filter((d) => mem.includes(d.person) && d.week === t.week && d.hours_late > 0 && (t.kpi === CFG.main || d.kpi === t.kpi)).map((d) => d.hours_late);
+          const pct = t.total ? Math.round(100 * t.value / t.total) : null;
+          rows.push({...t, behind: t.behind.join(', '), pct, status: stOf(pct, t.current),
+            open_tasks: open, late_tasks: new Set(lateG.map((r) => r.id.split(':')[0])).size, longest_late_h: lateG.reduce((m, r) => Math.max(m, r.hours_late), 0),
+            avg_late_h: lateH.length ? Math.round(lateH.reduce((x, y) => x + y, 0) / lateH.length) : 0, late_deadlines: lateH.length});
+        });
+      });
+      return rows;
+    },
+  });
+
+  dash.calc('people', {
+    inputs: [CFG.kpis, CFG.late, CFG.tasks],
+    title: 'Each person per week',
+    description: 'One row per person and week: overall % of deadlines on time, then each KPI (% on time and average hours late, or count against target), tasks late right now and the longest one, and the overall % for every week shown.',
+    fn: (kpis, late, tasks) => {
+      const weeks = [...new Set(kpis.map((r) => r.week))].sort();
+      const openBy = {};
+      tasks.filter((t) => !CFG.doneStatus.includes(t.status) && (!CFG.openStatus || CFG.openStatus.includes(t.status))).forEach((t) => (openBy[t[CFG.taskPerson]] = (openBy[t[CFG.taskPerson]] || 0) + 1));
+      const by = {};
+      kpis.forEach((r) => { ((by[r.person] = by[r.person] || {})[r.week] = by[r.person][r.week] || {})[r.kpi] = r; });
+      const lateBy = {};
+      late.forEach((r) => { const x = lateBy[r.who] = lateBy[r.who] || {ids: new Set(), longest: 0}; x.ids.add(r.id.split(':')[0]); x.longest = Math.max(x.longest, r.hours_late); });
+      const out = [];
+      Object.keys(by).forEach((person) => weeks.forEach((week) => {
+        const k = (by[person][week] || {});
+        const m = k[CFG.main] || {value: 0, total: 0, pct: null, status: 'none', avg_late_h: 0, max_late_h: 0};
+        const row = {person, week, pct: m.pct, on_time: m.value, due: m.total, late: m.total - m.value, status: m.status,
+          avg_late_h: m.avg_late_h || 0, max_late_h: m.max_late_h || 0,
+          late_now: lateBy[person] ? lateBy[person].ids.size : 0, longest_now_h: lateBy[person] ? lateBy[person].longest : 0, open_tasks: openBy[person] || 0,
+          prev_pct: (() => { const i = weeks.indexOf(week); const x = i > 0 ? (by[person][weeks[i - 1]] || {})[CFG.main] : null; return x && x.pct != null ? x.pct : null; })(),
+          hist: weeks.map((w) => { const x = (by[person][w] || {})[CFG.main]; return x && x.pct != null ? x.status + ':' + x.pct : 'none:'; }).join(',')};
+        CFG.cells.forEach(([kpi]) => {
+          const x = k[kpi] || {};
+          row[kpi + '_pct'] = x.pct ?? null; row[kpi + '_status'] = x.status || 'none'; row[kpi + '_value'] = x.value ?? 0;
+          row[kpi + '_total'] = x.total ?? 0; row[kpi + '_avg_late_h'] = x.avg_late_h || 0; row[kpi + '_late'] = (x.total || 0) - (x.value || 0);
+        });
+        out.push(row);
+      }));
+      return out;
+    },
+  });
+
+  const weeksOf = () => ok(CFG.kpis) ? [...new Set(dash.data(CFG.kpis).data.map((r) => r.week))].sort() : [];
+  const currentWeek = () => { const d = dash.data(CFG.kpis); return d.status === 'ok' && d.data.length ? (d.data.find((r) => r.current) || {}).week : null; };
+  const pickedWeek = () => {
+    const ws = weeksOf(), p = dash.params().week;
+    if (p && ws.includes(p)) return p;
+    const cur = currentWeek();
+    const full = ws.filter((w) => w !== cur);
+    return full.length ? full[full.length - 1] : ws[ws.length - 1];
+  };
+  const weekName = (w) => {
+    const ws = weeksOf(), cur = currentWeek();
+    if (w === cur) return 'This week';
+    if (ws.indexOf(w) === ws.indexOf(cur) - 1) return 'Last week';
+    return 'Week of ' + day(parseWeek(w));
+  };
+  const weekPhrase = (w) => { const n = weekName(w); return n === 'This week' ? 'this week so far' : n === 'Last week' ? 'last week' : 'in the w' + n.slice(1); };
+  const person = () => dash.params().person || '';
+  const pickPerson = (p) => dash.setParams({person: person() === p ? null : p});
+  const sortPeople = (rows) => rows.slice().sort((a, b) => (a.pct == null) - (b.pct == null) || (a.pct ?? 0) - (b.pct ?? 0) || b.late_now - a.late_now || CFG.order.indexOf(a.person) - CFG.order.indexOf(b.person));
+  const clickable = (node, p) => {
+    node.tabIndex = 0; node.setAttribute('role', 'button'); node.setAttribute('aria-pressed', String(person() === p));
+    const go = () => { const was = person() === p; pickPerson(p); if (!was) setTimeout(() => document.getElementById('board').scrollIntoView({behavior: 'smooth', block: 'start'}), 60); };
+    node.onclick = go;
+    node.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } };
+  };
+
+  dash.draw('weeks', (box) => {
+    box.replaceChildren();
+    if (!ok(CFG.kpis)) { box.textContent = '—'; return; }
+    const sel = pickedWeek();
+    weeksOf().slice().reverse().forEach((w) => {
+      const b = el('button', 'tn-tab', weekName(w));
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(w === sel));
+      b.onclick = () => dash.setParams({week: w});
+      box.append(b);
+    });
+  });
+
+  dash.draw('asof', (e) => {
+    const d = dash.data(CFG.kpis);
+    e.textContent = d.status === 'ok' && d.data.length ? d3.timeFormat('%a %b %-d, %-I:%M %p')(new Date(d.data[0].as_of)) : '—';
+  });
+  dash.draw('since', (e) => {
+    const d = dash.data(CFG.kpis);
+    e.textContent = d.status === 'ok' && d.data.length ? day(new Date(d.data[0].tracking_since)) : '—';
+  });
+  dash.draw('wk-lbl', (e) => { if (!ok(CFG.kpis)) { e.textContent = '—'; return; } const w = pickedWeek(); e.textContent = 'Worst first. Every deadline due ' + weekPhrase(w) + (w === currentWeek() ? ', plus late ones from earlier weeks still not done.' : '.'); });
+  dash.draw('verdict', (e) => {
+    e.replaceChildren();
+    if (!ok('team', 'people')) { e.textContent = '—'; return; }
+    const w = pickedWeek();
+    const t = dash.data('team').data.find((r) => r.group === grp() && r.week === w && r.kpi === CFG.main);
+    const b = (cls, txt) => el('b', cls, txt);
+    const ph = weekPhrase(w);
+    if (!t || t.pct == null) e.append('Nothing was due ' + ph + '.');
+    else {
+      e.append((grp() === 'all' ? '' : grpLabel() + '. ') + ph.charAt(0).toUpperCase() + ph.slice(1) + ', ' + (grp() === 'all' ? 'the team' : 'they') + ' hit ', b(t.pct < CFG.pass ? 'sc-red' : 'sc-green', t.pct + '%'), ' of ' + CFG.mainNoun + ' (target ' + CFG.pass + '%).');
+      const behind = sortPeople(dash.data('people').data.filter((r) => r.week === w && r.status === 'miss' && inGrp(r.person))).slice(0, 3);
+      if (behind.length) e.append(' Furthest behind: ', b('sc-orange', behind.map((r) => r.person + ' ' + r.pct + '%').join(', ')), '.');
+      const worst = CFG.rateKinds.map(([k, label]) => ({label, t: dash.data('team').data.find((r) => r.group === grp() && r.week === w && r.kpi === k)})).filter((x) => x.t && x.t.pct != null).sort((a, b) => a.t.pct - b.t.pct)[0];
+      if (worst && CFG.rateKinds.length > 1) e.append(' Worst KPI: ', b('sc-orange', worst.label + ' ' + worst.t.pct + '%'), '.');
+    }
+    const late = t ? t.late_tasks : 0;
+    e.append(' ', b(late ? 'sc-red' : 'sc-green', String(late)), (late === 1 ? ' task is' : ' tasks are') + ' late right now.');
+  });
+
+  const trend = (now, prev) => {
+    if (now == null || prev == null || now === prev) return null;
+    const up = now > prev;
+    const t = el('span', 'sc-trend-t ' + (up ? 'is-up' : 'is-down'), (up ? '▲' : '▼') + Math.abs(now - prev));
+    t.title = (up ? 'Up ' : 'Down ') + Math.abs(now - prev) + ' points on the week before (' + prev + '%)';
+    return t;
+  };
+
+  dash.draw('rank', (box) => {
+    box.replaceChildren();
+    if (!ok('people', 'team')) return;
+    const w = pickedWeek(), ws = weeksOf();
+    const prevW = ws[ws.indexOf(w) - 1];
+    const teamOf = (kpi, week) => dash.data('team').data.find((r) => r.group === grp() && r.week === week && r.kpi === kpi);
+    const head = el('div', 'sc-mrow sc-mhead');
+    head.append(el('span', null, CFG.personLabel), el('span', null, 'All deadlines'));
+    CFG.cells.forEach(([kpi, label, kind, rule]) => { const h = el('span', 'sc-mc-h'); h.append(label, el('small', null, rule)); head.append(h); });
+    const lh = el('span', 'sc-mc-h'); lh.append('Late now', el('small', null, 'past deadline')); head.append(lh);
+    const oh = el('span', 'sc-mc-h'); oh.append('In hand', el('small', null, 'open tasks')); head.append(oh);
+    box.append(head);
+
+    const allCell = (pct, status, prev, src, where) => {
+      const all = el('div', 'sc-all');
+      const bar = el('div', 'sc-bar');
+      if (pct == null) bar.append(el('span', 'sc-bar-none', 'Nothing due'));
+      else { const f = el('i', 'sc-bar-fill is-' + status); f.style.width = Math.max(pct, 1.5) + '%'; bar.append(f); }
+      const pass = el('i', 'sc-bar-pass'); pass.style.left = CFG.pass + '%'; bar.append(pass);
+      const num = el('div', 'sc-pctwrap');
+      num.append(mark(el('b', 'sc-pct is-' + status + '-t', pct == null ? '–' : pct + '%'), src, 'pct', where));
+      const tr = trend(pct, prev); if (tr) num.append(tr);
+      all.append(bar, num);
+      return all;
+    };
+    const rateCell = (label, pct, status, avg, late, title, src, fPct, fAvg, where) => {
+      const c = el('div', 'sc-mc is-' + status);
+      c.dataset.label = label;
+      if (pct == null) c.append(el('b', null, '–'), el('small', null, 'nothing due'));
+      else {
+        c.append(mark(el('b', null, pct + '%'), src, fPct, where));
+        c.append(late ? mark(el('small', 'sc-mc-late', 'avg ' + lateTxt(avg) + ' late'), src, fAvg, where) : el('small', 'is-hit-t', 'none late'));
+      }
+      if (title) c.title = title;
+      return c;
+    };
+    const plainCell = (label, big, sub, cls, src, field, where) => {
+      const c = el('div', 'sc-mc ' + cls);
+      c.dataset.label = label;
+      c.append(mark(el('b', null, String(big)), src, field, where), el('small', cls === 'is-miss' ? 'sc-mc-late' : null, sub));
+      return c;
+    };
+
+    // Team row
+    const m = teamOf(CFG.main, w);
+    if (m) {
+      const row = el('div', 'sc-mrow sc-mteam');
+      const who = el('div', 'tn-who'); const tb = el('span', 'sc-team-badge', 'TEAM'); who.append(tb, el('span', 'tn-name', grpLabel()));
+      const pm = teamOf(CFG.main, prevW);
+      row.append(who, allCell(m.pct, m.status, pm ? pm.pct : null, 'team', 'week=' + enc(w) + '&kpi=' + enc(CFG.main)));
+      CFG.cells.forEach(([kpi, label, kind, rule, target]) => {
+        const t = teamOf(kpi, w), where = 'week=' + enc(w) + '&kpi=' + enc(kpi);
+        if (!t) { row.append(plainCell(label, '–', '', 'is-none')); return; }
+        if (kind === 'rate') row.append(rateCell(label, t.pct, t.status, t.avg_late_h, t.total - t.value, t.value + ' of ' + t.total + ' on time', 'team', 'pct', 'avg_late_h', where));
+        else row.append(plainCell(label, t.value, target ? 'of ' + t.total : 'in total', target ? (t.current ? 'is-open' : 'is-' + t.status) : 'is-none', 'team', 'value', where));
+      });
+      row.append(plainCell('Late now', m.late_tasks, m.late_tasks ? 'longest ' + lateTxt(m.longest_late_h) : 'on track', m.late_tasks ? 'is-miss' : 'is-hit', 'team', 'late_tasks', 'week=' + enc(w) + '&kpi=' + enc(CFG.main)));
+      row.append(plainCell('In hand', m.open_tasks, 'open tasks', 'is-none', 'team', 'open_tasks', 'week=' + enc(w) + '&kpi=' + enc(CFG.main)));
+      box.append(row);
+    }
+
+    sortPeople(dash.data('people').data.filter((r) => r.week === w && inGrp(r.person))).forEach((r) => {
+      const row = el('div', 'sc-mrow' + (person() === r.person ? ' tn-mine' : ''));
+      row.dataset.key = enc(r.person) + ',' + enc(r.week);
+      clickable(row, r.person);
+      const who = el('div', 'tn-who'); who.append(avatar(r.person), mark(el('span', 'tn-name', r.person), 'people', 'person'));
+      row.append(who, allCell(r.pct, r.status, r.prev_pct, 'people'));
+      CFG.cells.forEach(([kpi, label, kind, rule, target]) => {
+        if (kind === 'rate') row.append(rateCell(label, r[kpi + '_pct'], r[kpi + '_status'], r[kpi + '_avg_late_h'], r[kpi + '_late'], label + ': ' + r[kpi + '_value'] + ' of ' + r[kpi + '_total'] + ' on time', 'people', kpi + '_pct', kpi + '_avg_late_h'));
+        else {
+          const noT = !target || CFG.noTarget.includes(r.person);
+          row.append(plainCell(label, r[kpi + '_value'], noT ? (target ? 'no target' : 'in total') : 'of ' + target, noT ? 'is-none' : 'is-' + r[kpi + '_status'], 'people', kpi + '_value'));
+        }
+      });
+      row.append(plainCell('Late now', r.late_now, r.late_now ? 'longest ' + lateTxt(r.longest_now_h) : 'on track', r.late_now ? 'is-miss' : 'is-hit', 'people', 'late_now'));
+      row.append(plainCell('In hand', r.open_tasks, 'open tasks', 'is-none', 'people', 'open_tasks'));
+      box.append(row);
+    });
+  });
+
+  // ---- Board: every task as a card in its ClickUp stage, late ones in red ----
+  const COLS = [
+    {key: 'brief', label: 'Brief ready', match: ['Brief ready']},
+    {key: 'prog', label: 'In progress', match: ['In progress']},
+    {key: 'cs', label: 'CS review', match: ['Cs review']},
+    {key: 'rev', label: 'Revisions', match: ['Revisions']},
+    {key: 'tom', label: 'Tom review', match: ['Tom review']},
+    {key: 'done', label: 'Approved', match: ['Approved', 'Ready to launch', 'Launched']},
+  ];
+  const DONE_SHOW = 12;
+  const hrs = (ms) => Math.round(ms / 3600000);
+  const dueTxt = (iso) => {
+    const h = hrs(new Date(iso) - Date.now());
+    if (h < 1) return 'Due within the hour';
+    return h < 48 ? 'Due in ' + h + 'h' : 'Due ' + d3.timeFormat('%a %-I %p')(new Date(iso));
+  };
+  const SHORT = {first_draft: 'Draft', revisions: 'Rev', reviews: 'Review', approved_7d: '7-day'};
+
+  dash.draw('picker', (box) => {
+    box.replaceChildren();
+    if (!ok(CFG.tasks, CFG.late)) return;
+    const tasks = dash.data(CFG.tasks).data.filter(taskInGrp), late = dash.data(CFG.late).data.filter((r) => grp() === 'all' || r.pod === 'Pod ' + grp());
+    const names = membersOf(grp()).filter((n) => tasks.some((t) => t[CFG.taskPerson] === n));
+    const lateIds = (rows) => new Set(rows.map((r) => r.id.split(':')[0])).size;
+    const btn = (label, p, n, lateN, face) => {
+      const b = el('button', 'sc-pick' + (person() === p ? ' is-on' : ''));
+      b.type = 'button'; b.setAttribute('aria-pressed', String(person() === p));
+      if (face) b.append(avatar(p));
+      const t = el('span', 'sc-pick-name', label); b.append(t);
+      const meta = el('span', 'sc-pick-meta');
+      meta.append(el('span', null, n + ' tasks'));
+      if (lateN) meta.append(el('b', null, lateN + ' late'));
+      b.append(meta);
+      b.onclick = () => dash.setParams({person: p || null});
+      return b;
+    };
+    const mem = membersOf(grp());
+    box.append(btn(grp() === 'all' ? CFG.everyone : 'All in ' + grpLabel().split(' (')[0], '', tasks.filter((t) => mem.includes(t[CFG.taskPerson])).length, lateIds(late.filter((r) => mem.includes(r.who))), false));
+    names.forEach((n) => box.append(btn(n, n, tasks.filter((t) => t[CFG.taskPerson] === n).length, lateIds(late.filter((r) => r.who === n)), true)));
+  });
+
+  dash.draw('board', (box) => {
+    box.replaceChildren();
+    if (!ok(CFG.tasks, CFG.late, CFG.deadlines)) { box.textContent = '—'; return; }
+    const me = person();
+    const lateBy = {};
+    dash.data(CFG.late).data.forEach((r) => { if (r.stage === 'Approval (7 days)') return; const id = r.id.split(':')[0]; if (!lateBy[id] || r.hours_late > lateBy[id].hours_late) lateBy[id] = r; });
+    const histBy = {};
+    dash.data(CFG.deadlines).data.forEach((d) => { if (d.carried) return; const id = d.id.split(':')[0]; (histBy[id] = histBy[id] || []).push(d); });
+    const tasks = dash.data(CFG.tasks).data.filter((t) => taskInGrp(t) && (me ? t[CFG.taskPerson] === me : membersOf(grp()).includes(t[CFG.taskPerson])));
+    const showAll = dash.params().allDone;
+    COLS.forEach((col) => {
+      let rows = tasks.filter((t) => col.match.includes(t.status));
+      const lateN = rows.filter((t) => lateBy[t.id]).length;
+      const appLate = new Set(dash.data(CFG.late).data.filter((r) => r.stage === 'Approval (7 days)').map((r) => r.id.split(':')[0]));
+      if (col.key === 'done') rows.sort((a, b) => (b.approved_at || '').localeCompare(a.approved_at || ''));
+      else rows.sort((a, b) => (lateBy[b.id] ? lateBy[b.id].hours_late : -1e9) - (lateBy[a.id] ? lateBy[a.id].hours_late : -1e9) || (a.due_at || '9').localeCompare(b.due_at || '9'));
+      const c = el('div', 'sc-col-b' + (lateN ? ' has-late' : ''));
+      const head = el('div', 'sc-col-head');
+      head.append(el('span', 'sc-col-name', col.label), el('span', 'sc-col-n', String(rows.length)));
+      if (lateN) head.append(el('span', 'sc-col-late', lateN + ' late'));
+      c.append(head);
+      const list = el('div', 'sc-col-list');
+      const shown = col.key === 'done' && !showAll ? rows.slice(0, DONE_SHOW) : rows;
+      if (!rows.length) list.append(el('p', 'sc-empty', 'Nothing here.'));
+      shown.forEach((t) => {
+        const L = lateBy[t.id];
+        const hist = (histBy[t.id] || []).sort((a, b) => (a.due || '').localeCompare(b.due || ''));
+        const wasLate = hist.some((d) => d.hours_late > 0 && !d.open);
+        const card = el('a', 'sc-tcard' + (L ? ' is-late' : appLate.has(t.id) ? ' is-late-soft' : wasLate ? ' was-late' : ''));
+        card.href = t.url; card.target = '_blank'; card.rel = 'noopener';
+        card.dataset.key = t.id;
+        const top = el('div', 'sc-tc-top');
+        top.append(mark(el('span', 'sc-tc-code', t.code), CFG.tasks, 'code'));
+        if (!me) { const a = avatar(t[CFG.taskPerson]); a.title = t[CFG.taskPerson]; top.append(a); }
+        card.append(top);
+        card.append(el('span', 'sc-tc-angle', t.angle || ''));
+        let st = null;
+        if (L) {
+          st = el('span', 'sc-tag is-late', lateTxt(L.hours_late) + ' late');
+          st.title = L.stage + ' was due ' + L.hours_late + ' hours ago';
+          card.append(st, el('span', 'sc-tc-why', L.stage === 'Start' ? 'Not started' : L.stage));
+        } else if (col.key === 'done') {
+          card.append(el('span', 'sc-tag is-done', t.approved_at ? 'Approved ' + day(new Date(t.approved_at)) : 'Approved'));
+        } else if (t.due_at && CFG.ownStages.includes(t.status)) {
+          const h = hrs(new Date(t.due_at) - Date.now());
+          card.append(el('span', 'sc-tag' + (h <= 12 ? ' is-soon' : ''), dueTxt(t.due_at)));
+        } else if (!CFG.ownStages.includes(t.status)) {
+          card.append(el('span', 'sc-tag is-wait', 'With ' + (t.status === 'Tom review' ? 'Tom' : t.status === 'Cs review' ? (t.cs || 'CS') : (t.editor || 'editor'))));
+        }
+        if (hist.length) {
+          const hr = el('div', 'sc-hist-row');
+          const n = {};
+          hist.forEach((d) => {
+            n[d.kpi] = (n[d.kpi] || 0) + 1;
+            const lbl = SHORT[d.kpi] + (d.kpi === 'revisions' || d.kpi === 'reviews' ? ' ' + n[d.kpi] : '');
+            if (d.open && L && d.kpi !== 'approved_7d') return;            // already shown big above
+            const chip = el('span', 'sc-hchip ' + (d.hours_late > 0 ? (d.open ? 'is-open' : 'is-late') : 'is-ok'), lbl + ' ' + (d.hours_late > 0 ? '+' + lateTxt(d.hours_late) : '✓'));
+            chip.title = d.kind + ' due ' + d3.timeFormat('%a %b %-d, %-I %p')(new Date(d.due)) + ': ' + d.result + (d.hours_late > 0 ? ' by ' + d.hours_late + 'h' : '');
+            hr.append(chip);
+          });
+          if (hr.childNodes.length) card.append(hr);
+        }
+        list.append(card);
+      });
+      if (col.key === 'done' && rows.length > DONE_SHOW) {
+        const more = el('button', 'sc-more', showAll ? 'Show fewer' : 'Show all ' + rows.length);
+        more.type = 'button';
+        more.onclick = () => dash.setParams({allDone: showAll ? null : 1});
+        list.append(more);
+      }
+      c.append(list);
+      box.append(c);
+    });
+  });
+  // ---- Load: points used from the 100-point week, per editor ----
+  const POINTS_KEY = CFG.load ? CFG.load.types : [];
+  const ringLoad = (used, label) => {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 120 120'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', label);
+    const g = document.createElementNS(ns, 'g'); g.setAttribute('transform', 'rotate(-90 60 60)'); svg.append(g);
+    const R = 50, C = 2 * Math.PI * R;
+    const arc = (color, frac, w) => {
+      const c = document.createElementNS(ns, 'circle');
+      Object.entries({cx: 60, cy: 60, r: R, fill: 'none', stroke: color, 'stroke-width': w || 14, 'stroke-dasharray': (frac * C) + ' ' + C, 'stroke-linecap': frac > 0 && frac < 1 ? 'round' : 'butt'}).forEach(([k, v]) => c.setAttribute(k, v));
+      g.append(c);
+    };
+    arc('var(--tn-tint)', 1);
+    const f = Math.min(used / CFG.load.week, 1);
+    if (f > 0) arc(used > CFG.load.week ? 'var(--tn-bad)' : 'var(--tn-orange)', f);
+    return svg;
+  };
+
+  dash.draw('load', (box) => {
+    box.replaceChildren();
+    if (!CFG.load || !ok(CFG.tasks, CFG.kpis)) return;
+    const cur = currentWeek(), W = CFG.load.week;
+    const tasks = dash.data(CFG.tasks).data;
+    const cards = membersOf(grp()).map((p) => {
+      const mine = tasks.filter((t) => t[CFG.taskPerson] === p);
+      const wk = mine.filter((t) => t.week === cur);
+      const used = wk.reduce((a, t) => a + (t.points || 0), 0);
+      const owed = mine.filter((t) => t.week < cur && CFG.ownStages.includes(t.status));
+      return {p, wk, used, left: W - used, owed, owedPts: owed.reduce((a, t) => a + (t.points || 0), 0), unpointed: wk.filter((t) => t.points == null).length};
+    }).sort((a, b) => b.left - a.left);
+    cards.forEach((c) => {
+      const card = el('article', 'sc-panel sc-load' + (person() === c.p ? ' tn-mine' : '') + (c.left < 0 ? ' is-over' : ''));
+      card.dataset.key = c.p;
+      clickable(card, c.p);
+      const head = el('div', 'sc-load-head');
+      head.append(avatar(c.p), el('b', 'sc-load-name', c.p));
+      card.append(head);
+      const tags = el('div', 'sc-tags');
+      const ex = CFG.load.experts[c.p] || {};
+      (ex.expert || []).forEach((t) => tags.append(el('span', 'sc-xtag', 'Expert: ' + t)));
+      (ex.okay || []).forEach((t) => tags.append(el('span', 'sc-xtag is-okay', 'Okay at: ' + t)));
+      if (tags.childNodes.length) card.append(tags);
+      const ring = el('div', 'sc-ring sc-load-ring');
+      ring.append(ringLoad(c.used, c.p + ': ' + Math.round(c.used) + ' of ' + W + ' points used'));
+      const mid = el('div', 'sc-ring-mid');
+      mid.append(el('b', c.left < 0 ? 'is-miss-t' : c.left < 15 ? 'is-open-t' : null, String(Math.abs(Math.round(c.left)))), el('small', null, c.left < 0 ? 'points over' : 'points left'));
+      ring.append(mid);
+      card.append(ring);
+      card.append(el('p', 'sc-load-used', Math.round(c.used) + ' of ' + W + ' used · ' + c.wk.length + (c.wk.length === 1 ? ' brief' : ' briefs') + ' this week'));
+      if (c.wk.length) {
+        const mix = {};
+        c.wk.forEach((t) => { const k = t.type || 'Not pointed'; mix[k] = (mix[k] || 0) + 1; });
+        const m = el('div', 'sc-mix');
+        Object.entries(mix).forEach(([k, n]) => m.append(el('span', 'sc-mixchip' + (k === 'Not pointed' ? ' is-warn' : ''), n + ' × ' + k)));
+        card.append(m);
+      }
+      if (c.left > 0) {
+        const room = el('div', 'sc-room');
+        room.append(el('span', 'sc-room-lbl', 'Room for'));
+        const list = el('div', 'sc-room-list');
+        const exs = new Set([...(ex.expert || []), ...(ex.okay || [])]);
+        POINTS_KEY.map(([label, pts]) => ({label, pts, n: Math.floor((c.left + 0.01) / pts)})).filter((x) => x.n > 0)
+          .sort((a, b) => [...exs].some((e) => e.startsWith(b.label)) - [...exs].some((e) => e.startsWith(a.label)))
+          .forEach((x) => list.append(el('span', 'sc-roomchip' + ([...exs].some((e) => e.startsWith(x.label)) ? ' is-fit' : ''), x.n + ' ' + x.label)));
+        if (!list.childNodes.length) list.append(el('span', 'sc-nochips', 'Nothing full-size'));
+        room.append(list);
+        card.append(room);
+      }
+      if (c.owed.length) card.append(el('p', 'sc-owed', 'Still owes ' + c.owed.length + ' from earlier weeks (' + Math.round(c.owedPts) + ' pts)'));
+      box.append(card);
+    });
+  });
+  dash.draw('pods', (box) => {
+    box.replaceChildren();
+    GROUPS.forEach((g) => {
+      const b = el('button', 'tn-tab sc-podtab', g === 'all' ? 'All editors' : CFG.pods.labels[g]);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(grp() === g));
+      b.onclick = () => dash.setParams({pod: g === 'all' ? null : g, person: null});
+      box.append(b);
+    });
+  });
+</script>
+
+</body></html>

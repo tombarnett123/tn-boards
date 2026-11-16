@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<title>Creative Strategist dashboard</title>
+<style>html,body{margin:0;background:#fbf7ef} .tn{border-radius:0!important}</style>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script>window.DASH_CONFIG = {page:'strategist',datasets:{cs:'data/cs.bin',thumbs:'data/cs_thumbs.bin'},defaults:{window:'7d'}};</script>
+<script src="dash.js"></script>
+</head><body>
+
+<link rel="stylesheet" href="strategist.css">
+<style>
+  /* Same look as the editors board: black band, orange accents, Oswald heads, white cards on sand. */
+  .tn {
+    --tn-black: #19150f; --tn-orange: #e29709; --tn-orange-dark: #b97a06; --tn-sand: #e8dac0; --tn-cream: #f6eedf;
+    --tn-page: #fbf7ef; --tn-card: #ffffff; --tn-line: #ece3d2; --tn-tint: #f3ebdc; --tn-ink: #222222; --tn-muted: rgba(34, 34, 34, .62);
+    --tn-ok: #2ea043; --tn-gold: #f1cf5e;
+    --tn-head: 'Oswald', 'Arial Narrow', Impact, sans-serif; --tn-body: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
+    font-family: var(--tn-body); color: var(--tn-ink); background: var(--tn-page); border-radius: 10px; overflow: hidden; line-height: 1.4;
+  }
+  .tn b { font-weight: 700; }
+
+  .tn-band { background: var(--tn-black); color: var(--tn-cream); padding: 22px max(16px, 3vw) 26px; display: flex; flex-direction: column; gap: 12px; }
+  .tn-logo { width: 136px; height: 57px; background-repeat: no-repeat; background-position: left center; background-size: contain; }
+  .tn-title { margin: 4px 0 0; font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; font-size: clamp(36px, 7vw, 60px); line-height: .95; letter-spacing: .01em; text-wrap: balance; color: var(--tn-cream); }
+  .tn-band-prize { margin: 0; font-size: 16px; color: var(--tn-cream); }
+  .tn-band-prize b { font-family: var(--tn-head); color: var(--tn-gold); font-size: 22px; letter-spacing: .01em; }
+  .tn-window { margin: 0; color: var(--tn-sand); font-size: 14px; }
+  .tn-lead { margin: 0; font-size: 17px; font-weight: 600; }
+  .tn-lead b { font-family: var(--tn-head); color: var(--tn-orange); font-size: 20px; letter-spacing: .02em; }
+  .tn-tag { align-self: flex-start; font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--tn-black); background: var(--tn-orange); border-radius: 3px; padding: 3px 8px; }
+  .tn-banner { margin: 0; padding: 12px max(16px, 3vw); background: var(--tn-orange); color: var(--tn-black); font-size: 14px; font-weight: 600; }
+  .tn-banner strong { font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-right: 8px; }
+
+  .tn-bar-wrap { position: sticky; top: 0; z-index: 3; background: var(--tn-page); border-bottom: 1px solid var(--tn-line); padding: 12px max(16px, 3vw); display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: end; }
+  .tn-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .tn-field > span { font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--tn-muted); }
+  .tn-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tn-tab { font-family: var(--tn-head); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 14px; line-height: 1.1; min-height: 44px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--tn-line); background: var(--tn-card); color: var(--tn-ink); cursor: pointer; }
+  .tn-tab[aria-pressed="true"] { background: var(--tn-black); border-color: var(--tn-black); color: var(--tn-cream); box-shadow: inset 0 -3px 0 var(--tn-orange); }
+  .tn-tab:focus-visible, .tn-cs:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+
+  .tn-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 22px max(16px, 3vw) 26px; align-items: start; }
+  .tn-wide { grid-column: 1 / -1; }
+  .tn-card { background: var(--tn-card); border: 1px solid var(--tn-line); border-radius: 8px; min-width: 0; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(25, 21, 15, .06); }
+  .tn-card-head { padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 3px solid var(--tn-orange); }
+  .tn-card h2 { margin: 0; font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; font-size: 22px; letter-spacing: .02em; line-height: 1.05; color: var(--tn-black); }
+  .tn-note { margin: 0; color: var(--tn-muted); font-size: 12.5px; }
+  .tn-scroll { max-height: 640px; overflow: auto; min-height: 120px; }
+
+  /* The four CS tiles: the money is the biggest thing on the page. */
+  .tn-cs-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--tn-line); min-height: 210px; }
+  .tn-cs { background: var(--tn-card); padding: 16px; display: flex; flex-direction: column; gap: 8px; text-align: left; border: 0; font: inherit; color: inherit; cursor: pointer; }
+  .tn-cs:hover { background: #fffaf0; }
+  .tn-cs.tn-mine { background: #fff6e3; box-shadow: inset 0 4px 0 var(--tn-orange); }
+  .tn-cs-top { display: flex; align-items: center; gap: 10px; }
+  .tn-cs-name { font-family: var(--tn-head); font-weight: 700; text-transform: uppercase; font-size: 20px; letter-spacing: .02em; color: var(--tn-black); line-height: 1; }
+  .tn-cs-pod { display: block; font-size: 12px; color: var(--tn-muted); margin-top: 3px; }
+  .tn-cs-place { margin-left: auto; }
+  .tn-cs-label { font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--tn-muted); }
+  .tn-cs-bonus { font-family: var(--tn-head); font-weight: 700; font-size: 46px; line-height: 1; color: var(--tn-black); font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+  .tn-cs-bonus.tn-zero { color: var(--tn-muted); }
+  .tn-cs-line { font-size: 13px; color: var(--tn-ink); }
+  .tn-cs-line b { font-variant-numeric: tabular-nums; }
+  .tn-cs-pace { font-size: 12.5px; color: var(--tn-orange-dark); font-weight: 700; }
+  .tn-cs-last { font-size: 12px; color: var(--tn-muted); }
+  .tn-month-bar { display: block; height: 6px; background: var(--tn-tint); border-radius: 3px; overflow: hidden; }
+  .tn-month-bar span { display: block; height: 100%; background: var(--tn-orange); }
+
+  .tn-avatar { position: relative; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; background: var(--tn-black); color: var(--tn-cream); display: inline-flex; align-items: center; justify-content: center; font-family: var(--tn-head); font-weight: 700; font-size: 17px; }
+  .tn-avatar.tn-pod { border-radius: 8px; background: var(--tn-orange); color: var(--tn-black); }
+  .tn-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; border-radius: 4px; font-family: var(--tn-head); font-weight: 700; font-size: 15px; color: var(--tn-muted); background: var(--tn-tint); }
+  .tn-badge.tn-r1 { background: linear-gradient(135deg, #f7d774, #c99a1e); color: var(--tn-black); }
+  .tn-badge.tn-r2 { background: linear-gradient(135deg, #eef0f3, #a4a9b2); color: var(--tn-black); }
+  .tn-badge.tn-r3 { background: linear-gradient(135deg, #e7a874, #a3622c); color: var(--tn-black); }
+
+  .tn-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .tn-table th { position: sticky; top: 0; z-index: 1; background: var(--tn-card); text-align: left; font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: var(--tn-muted); padding: 10px 12px 8px; border-bottom: 1px solid var(--tn-line); }
+  .tn-table th.num, .tn-table td.num { text-align: right; }
+  .tn-table td { padding: 10px 12px; border-bottom: 1px solid var(--tn-line); vertical-align: middle; }
+  .tn-table tr:last-child td { border-bottom: 0; }
+  .tn-table td.tn-hl, .tn-table th.tn-hl { background: #fff6e3; }
+  .tn-rank { width: 44px; }
+  .tn-name { font-weight: 600; overflow-wrap: anywhere; }
+  .tn-sub { display: block; color: var(--tn-muted); font-size: 12px; margin-top: 2px; }
+  .tn-chip { display: inline-block; font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; font-size: 10.5px; padding: 1px 6px; border-radius: 3px; margin-right: 6px; vertical-align: 1px; }
+  .tn-chip-video { background: var(--tn-black); color: var(--tn-cream); }
+  .tn-chip-static { background: var(--tn-sand); color: var(--tn-black); }
+  .tn-val { font-family: var(--tn-head); font-weight: 700; font-size: 19px; white-space: nowrap; color: var(--tn-black); }
+  .tn-earn { font-family: var(--tn-head); font-weight: 700; font-size: 16px; white-space: nowrap; color: var(--tn-ok); }
+  .tn-watch { display: inline-block; margin-top: 6px; font-family: var(--tn-head); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; font-size: 11.5px; background: var(--tn-black); color: #fff; border-radius: 4px; padding: 4px 9px; text-decoration: none; }
+  .tn-watch:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+  .tn-msg { margin: 0; padding: 16px; color: var(--tn-muted); font-size: 13px; }
+
+  .tn-chart { position: relative; min-height: 220px; padding: 12px 12px 4px; }
+  .tn-chart svg { display: block; }
+  .tn-chart text { font-family: var(--tn-body); font-size: 11px; fill: var(--tn-muted); }
+  .tn-tip { position: absolute; pointer-events: none; background: var(--tn-black); color: var(--tn-cream); font-size: 12px; padding: 6px 9px; border-radius: 5px; white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); }
+  .tn-tip b { font-family: var(--tn-head); color: var(--tn-orange); font-size: 15px; }
+
+  .tn-up { color: var(--tn-ok); font-weight: 700; }
+  .tn-down { color: #c0392b; font-weight: 700; }
+  .tn-who { display: flex; align-items: center; gap: 10px; }
+  .tn-who-text { min-width: 0; flex: 1 1 0%; }
+  .tn-thumb { position: relative; flex: 0 0 auto; width: 44px; height: 78px; border-radius: 5px; overflow: hidden; background: var(--tn-black); background-size: cover; background-position: center; display: block; }
+  .tn-thumb.tn-video::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-40%, -50%); border-style: solid; border-width: 9px 0 9px 14px; border-color: transparent transparent transparent #fff; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); }
+  .tn-thumb-none { display: grid; place-items: center; font-family: var(--tn-head); font-weight: 700; font-size: 11px; color: var(--tn-orange); letter-spacing: .04em; }
+  .tn-thumb:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: 2px; }
+  .tn-guide { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--tn-line); }
+  .tn-guide > div { background: var(--tn-card); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .tn-guide h3 { margin: 0; font-family: var(--tn-head); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 15px; color: var(--tn-black); }
+  @media (max-width: 1000px) { .tn-guide { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .tn-guide { grid-template-columns: 1fr; } }
+  .tn-guide p { margin: 0; font-size: 13px; color: var(--tn-ink); }
+  .tn-foot { margin: 0; padding: 0 max(16px, 3vw) 22px; color: var(--tn-muted); font-size: 12.5px; }
+
+  [data-dash-source-state=refreshing] { opacity: .5; transition: opacity .3s; }
+  [data-dash-source-state=empty] { color: transparent; }
+  @media (max-width: 760px) {
+    .tn { border-radius: 0; font-size: 14px; }
+    .tn-band { padding: 18px 16px 20px; gap: 10px; }
+    .tn-logo { width: 104px; height: 44px; }
+    .tn-grid { padding: 12px 16px 20px; }
+    .tn-scroll { max-height: none; overflow: visible; }
+    .tn-table td { padding: 10px 8px; } .tn-table th { padding: 8px 8px 6px; }
+    .tn-cs-bonus { font-size: 40px; }
+  }
+  @media (max-width: 1000px) { .tn-cs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .tn-cs-grid { grid-template-columns: 1fr; } }
+  .tn-rankby { margin-top: 12px; }
+  .tn-sort-note { margin-top: 6px; }
+  .tn-cs-rates { display: block; font-size: 12px; color: var(--tn-muted); margin-top: 4px; }
+  .tn-bar { display: block; height: 4px; margin-top: 7px; background: var(--tn-tint); border-radius: 2px; overflow: hidden; }
+  .tn-bar span { display: block; height: 100%; background: var(--tn-orange); border-radius: 2px; }
+  .tn-table tr.tn-pick { cursor: pointer; }
+  .tn-table tr.tn-pick:hover td { background: #fffaf0; }
+  .tn-table tr.tn-pick:focus-visible { outline: 2px solid var(--tn-orange); outline-offset: -2px; }
+  .tn-table tr.tn-mine td { box-shadow: inset 0 0 0 9999px rgba(226, 151, 9, .12); }
+  .tn-table tr.tn-mine td:first-child { box-shadow: inset 3px 0 0 var(--tn-orange), inset 0 0 0 9999px rgba(226, 151, 9, .12); }
+  .tn-val.tn-zero { color: var(--tn-muted); }
+  .tn-sub.tn-up, .tn-sub.tn-down { font-weight: 700; }
+  @media (max-width: 1250px) { .tn-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 700px) { .tn-grid { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="tn" id="cs-board">
+  <section class="tn-band" id="top">
+    <div class="tn-logo tn-logo-img" role="img" aria-label="Tradesman Nutrition"></div>
+    <h1 class="tn-title">Creative strategist dashboard</h1>
+    <p class="tn-band-prize">How your ads are doing, what's working right now, and how the whole team is tracking.</p>
+    <p class="tn-window">Showing <span data-draw="win-label">—</span>, data through <span data-draw="through" data-source="cs">—</span>. All spend in USD.</p>
+    <p class="tn-lead"><span data-draw="lead" data-source="standing">—</span></p>
+    <span class="tn-tag">Official Meta data · updated hourly</span>
+  </section>
+  <p class="tn-banner"><strong>How to read this</strong>An ad is yours when your name is in the ad name (the CS slot on v4 names, anywhere on old names). Trybe creator ads sit outside the team numbers.</p>
+
+  <div class="tn-bar-wrap" id="filters">
+    <div class="tn-field"><span>Time window</span>
+      <div class="tn-tabs" role="group" aria-label="Time window">
+        <button type="button" class="tn-tab" data-win="1d">1D</button>
+        <button type="button" class="tn-tab" data-win="7d">7D</button>
+        <button type="button" class="tn-tab" data-win="14d">14D</button>
+        <button type="button" class="tn-tab" data-win="30d">30D</button>
+        <button type="button" class="tn-tab" data-win="90d">90D</button>
+        <button type="button" class="tn-tab" data-win="month">This month</button>
+        <button type="button" class="tn-tab" data-win="all">All time</button>
+      </div>
+    </div>
+    <div class="tn-field"><span>I am</span>
+      <div class="tn-tabs" role="group" aria-label="I am">
+        <button type="button" class="tn-tab" data-cs="">Everyone</button>
+        <button type="button" class="tn-tab" data-cs="Airidas">Airidas</button>
+        <button type="button" class="tn-tab" data-cs="Josh">Josh</button>
+        <button type="button" class="tn-tab" data-cs="Tom">Tom</button>
+        <button type="button" class="tn-tab" data-cs="Nick T">Nick T</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tn-grid">
+    <section class="tn-card" id="spend">
+      <div class="tn-card-head">
+        <h2>The team</h2>
+        <p class="tn-note">How each strategist's ads are doing in this window, and whether they're growing or slowing against the period before. Tap a name to focus the page on them.</p>
+      </div>
+      <div class="tn-scroll">
+        <table class="tn-table" data-source="standing" data-row-key="window,cs">
+          <thead><tr><th class="tn-rank">Rank</th><th data-field="cs">Strategist</th><th class="num" data-field="spend"><span data-draw="spend-head">Spend</span></th></tr></thead>
+          <tbody data-draw="team-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tn-card" id="ads-video">
+      <div class="tn-card-head">
+        <h2>What's working: videos</h2>
+        <p class="tn-note">The videos Meta is backing hardest in this window. Watch the top ones for the hooks, angles and pacing that are landing, then brief more like them.</p>
+        <div class="tn-field tn-rankby"><span>Rank by</span>
+          <div class="tn-tabs" role="group" aria-label="Rank videos by">
+            <button type="button" class="tn-tab" data-sort="spend">Spend</button>
+            <button type="button" class="tn-tab" data-sort="hook_rate">Hook</button>
+            <button type="button" class="tn-tab" data-sort="hold_rate">Hold</button>
+            <button type="button" class="tn-tab" data-sort="ctr">CTR</button>
+          </div>
+        </div>
+        <p class="tn-note tn-sort-note"><span data-draw="sort-note" data-fmt="Video">Ranked by spend in this window.</span></p>
+      </div>
+      <div class="tn-scroll">
+        <table class="tn-table" data-source="cs thumbs" data-row-key="kind,window,cs,rank">
+          <thead><tr><th class="tn-rank">#</th><th data-field="concept">Video</th><th class="num" data-field="spend"><span data-draw="sort-head" data-fmt="Video">Spend</span></th></tr></thead>
+          <tbody data-draw="ad-rows" data-fmt="Video"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tn-card" id="ads-static">
+      <div class="tn-card-head">
+        <h2>What's working: statics</h2>
+        <p class="tn-note">The statics Meta is backing hardest in this window. Look at the headline, the image and the offer on the top ones, then brief more like them.</p>
+        <div class="tn-field tn-rankby"><span>Rank by</span>
+          <div class="tn-tabs" role="group" aria-label="Rank statics by">
+            <button type="button" class="tn-tab" data-ssort="spend">Spend</button>
+            <button type="button" class="tn-tab" data-ssort="ctr">CTR</button>
+          </div>
+        </div>
+        <p class="tn-note tn-sort-note"><span data-draw="sort-note" data-fmt="Static">Ranked by spend in this window.</span></p>
+      </div>
+      <div class="tn-scroll">
+        <table class="tn-table" data-source="cs thumbs" data-row-key="kind,window,cs,rank">
+          <thead><tr><th class="tn-rank">#</th><th data-field="concept">Static</th><th class="num" data-field="spend"><span data-draw="sort-head" data-fmt="Static">Spend</span></th></tr></thead>
+          <tbody data-draw="ad-rows" data-fmt="Static"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tn-card" id="new">
+      <div class="tn-card-head">
+        <h2>Fresh this week</h2>
+        <p class="tn-note">Ads that started spending in the last 7 days and how they're starting out. Early spend is the first sign an ad has legs.</p>
+      </div>
+      <div class="tn-scroll">
+        <table class="tn-table" data-source="cs thumbs" data-row-key="kind,cs,ad_name">
+          <thead><tr><th data-field="concept">Ad</th><th class="num" data-field="spend">7D spend</th></tr></thead>
+          <tbody data-draw="new-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tn-card tn-wide" id="guide">
+      <div class="tn-card-head">
+        <h2>Reading the numbers</h2>
+        <p class="tn-note">What each number on this page tells you, and what to do with it.</p>
+      </div>
+      <div class="tn-guide">
+        <div><h3>Spend</h3><p>What Meta spent showing the ad. Meta moves money toward ads that sell, so high spend means the ad is working.</p></div>
+        <div><h3>Change vs before</h3><p>This window against the one just before it. Green means your ads are picking up. Red means they're slowing and it may be time for fresh angles.</p></div>
+        <div><h3>Videos vs statics</h3><p>Where the money is going by format. If one side is doing all the work, that's a hint for what to brief next.</p></div>
+        <div><h3>What's working</h3><p>The top ads are the best brief you'll get. Watch them, note the hook and the angle, and build the next round off them.</p></div>
+        <div><h3>Hook rate</h3><p>Share of people who watched at least 3 seconds of a video. This is the opening: the first shot, the first line, the first caption.</p></div>
+        <div><h3>Hold rate</h3><p>Share of people who watched a video to the end, or 15 seconds on longer ones. This is the story and pacing after the hook.</p></div>
+        <div><h3>CTR</h3><p>Share of people who clicked through to the site, videos and statics. This is whether the ad made them want the product.</p></div>
+        <div><h3>The columns</h3><p>Every number is for the time window you pick at the top, so the column titles and numbers change when you switch windows.</p></div>
+      </div>
+    </section>
+  </div>
+  <p class="tn-foot">Spend adds up by ad name, so moving an ad from testing to scaling keeps its total, and the same ad in every market and ad set adds up as one ad. AUD spend converts to USD at each day's ECB rate. Numbers move every hour as Meta updates.</p>
+</div>
+
+<script>
+  const CS = ['Airidas', 'Josh', 'Tom', 'Nick T'];
+  const POD = {Airidas: 'A', Josh: 'B', Tom: 'C', 'Nick T': 'D'};
+  const FACES = ['Tom'];                   // Slack photo in brand.css
+  const DAYS = {'1d': 1, '7d': 7, '14d': 14, '30d': 30, '90d': 90};
+  const WIN = {'1d': 'the previous day', '7d': 'the last 7 days', '14d': 'the last 14 days', '30d': 'the last 30 days', '90d': 'the last 90 days', month: 'this month', all: 'all time'};
+  const money = (v) => '$' + d3.format(',.0f')(v);
+  const big = (v) => v >= 10000 ? '$' + new Intl.NumberFormat('en', {notation: 'compact', maximumFractionDigits: 1}).format(v) : money(v);
+  const pct = (v, dp) => v == null ? '–' : d3.format('.' + dp + 'f')(v) + '%';
+  const SORTS = {spend: 'Spend', hook_rate: 'Hook rate', hold_rate: 'Hold rate', ctr: 'CTR'};
+  const MIN_SPEND = {'1d': 100, '7d': 500, '14d': 500, '30d': 1000, '90d': 1000, month: 1000, all: 1000};   // rates on tiny spend are noise
+  const sortBy = (fmt) => {   // videos rank by any rate; statics by spend or CTR (no views to rate)
+    const k = fmt === 'Static' ? dash.params().ssort : dash.params().sort;
+    return SORTS[k] && (fmt !== 'Static' || k === 'ctr') ? k : 'spend';
+  };
+  const winTag = () => (win() === 'all' ? 'All-time' : win() === 'month' ? 'This month' : win().toUpperCase());
+  const fmtDate = (s) => d3.utcFormat('%b %-d')(new Date(s));
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const safeLink = (u) => (typeof u === 'string' && /^https:\/\/(fb\.me|www\.facebook\.com|business\.facebook\.com)\//.test(u) ? u : null);
+  const enc = encodeURIComponent;
+  const FLAG = {US: '🇺🇸', CA: '🇨🇦', AU: '🇦🇺', NZ: '🇳🇿', UK: '🇬🇧'};
+  const byline = (r) => [!r.market ? null : r.market.includes(' ') ? r.market.split(' ').map((m) => FLAG[m] || m).join(' ') : (FLAG[r.market] ? FLAG[r.market] + ' ' : '') + r.market, '📝 ' + r.cs, r.editor ? '🎥 ' + r.editor : null].filter(Boolean).join(' · ');
+  const thumbOf = () => { const t = dash.data('thumbs'); return new Map(t.status === 'ok' ? t.data.map((x) => [x.ad_name, x.thumb]) : []); };
+
+  const rowsOf = (kind) => { const d = dash.data('cs'); return d.status === 'ok' ? d.data.filter((r) => r.kind === kind) : []; };
+  const win = () => (WIN[dash.params().window] ? dash.params().window : '7d');
+  const picked = () => (CS.includes(dash.params().cs) ? dash.params().cs : null);
+
+  dash.calc('standing', {
+    inputs: ['cs'],
+    title: 'Spend, change and pace',
+    description: 'Per CS and window: spend, hook rate, hold rate and CTR (hook and hold over their video ads, CTR over all their ads), change against the period of the same length before it, rank by spend, and for this month the month-end pace (spend so far over days so far, times days in the month).',
+    fn: (cs) => {
+      const cur = cs.filter((r) => r.kind === 'month' && !r.final);
+      const out = cs.filter((r) => r.kind === 'win').map((r) => {
+        const m = cur.find((x) => x.cs === r.cs);
+        return {
+          window: r.window, cs: r.cs, pod: r.pod, spend: r.spend, video_spend: r.video_spend, static_spend: r.static_spend, ads: r.ads,
+          hook_rate: r.hook_rate, hold_rate: r.hold_rate, ctr: r.ctr,
+          change: r.prev_spend ? Math.round(1000 * (r.spend - r.prev_spend) / r.prev_spend) / 10 : null,
+          pace_spend: r.window === 'month' && m && m.days ? Math.round(m.spend / m.days * m.days_in_month) : null,
+          days: m ? m.days : null, days_in_month: m ? m.days_in_month : null,
+        };
+      });
+      const byWin = {};
+      out.forEach((r) => (byWin[r.window] = byWin[r.window] || []).push(r));
+      Object.values(byWin).forEach((list) => list.sort((a, b) => b.spend - a.spend).forEach((r, i) => (r.rank = i + 1)));
+      return out;
+    },
+  });
+
+  // Controls: the choices live in the HTML; scripts only listen and set state.
+  document.querySelectorAll('[data-win]').forEach((b) => b.addEventListener('click', () => dash.setParams({window: b.dataset.win})));
+  document.querySelectorAll('[data-cs]').forEach((b) => b.addEventListener('click', () => dash.setParams({cs: b.dataset.cs || null})));
+  document.querySelectorAll('[data-sort]').forEach((b) => b.addEventListener('click', () => dash.setParams({sort: b.dataset.sort === 'spend' ? null : b.dataset.sort})));
+  document.querySelectorAll('[data-ssort]').forEach((b) => b.addEventListener('click', () => dash.setParams({ssort: b.dataset.ssort === 'spend' ? null : b.dataset.ssort})));
+
+  dash.onData(() => {
+    const who = picked() || '', w = win();
+    document.querySelectorAll('[data-win]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.win === w)));
+    document.querySelectorAll('[data-cs]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cs === who)));
+    document.querySelectorAll('[data-sort]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sort === sortBy('Video'))));
+    document.querySelectorAll('[data-ssort]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ssort === sortBy('Static'))));
+  });
+
+  dash.draw('win-label', (e) => { e.textContent = WIN[win()]; });
+
+  dash.draw('sort-head', (e) => { const k = sortBy(e.dataset.fmt); e.textContent = winTag() + ' ' + (k === 'spend' ? 'spend' : k === 'ctr' ? 'CTR' : SORTS[k].toLowerCase()); });
+
+  dash.draw('sort-note', (e) => {
+    const k = sortBy(e.dataset.fmt);
+    e.textContent = k === 'spend' ? 'Ranked by spend in this window.'
+      : 'Ranked by ' + (k === 'ctr' ? 'CTR' : SORTS[k].toLowerCase()) + ', counting ' + (e.dataset.fmt === 'Static' ? 'statics' : 'videos') + ' with at least ' + money(MIN_SPEND[win()]) + ' spend in this window so a few lucky ' + (e.dataset.fmt === 'Static' ? 'clicks' : 'views') + ' don\'t top the list. The rate is for this window only, so it changes when you switch windows.';
+  });
+  dash.draw('through', (e) => { const r = rowsOf('win')[0]; e.textContent = r ? fmtDate(r.data_through) : '—'; });
+
+  dash.draw('lead', (e) => {
+    const s = dash.data('standing'), w = win();
+    e.replaceChildren();
+    if (s.status !== 'ok') { e.textContent = '—'; return; }
+    const rows = s.data.filter((r) => r.window === w);
+    if (!rows.length) { e.textContent = '—'; return; }
+    const total = rows.reduce((t, r) => t + r.spend, 0);
+    const top = rows.reduce((a, b) => (b.spend > a.spend ? b : a));
+    const b2 = el('b', null, money(top.spend));
+    b2.dataset.source = 'standing'; b2.dataset.where = 'window=' + enc(w) + '&cs=' + enc(top.cs); b2.dataset.field = 'spend';
+    e.append(el('b', null, money(total)), ' spent behind the team\'s ads in ' + WIN[w] + '. ' + top.cs + '\'s ads lead with ', b2, '.');
+  });
+
+  dash.draw('spend-head', (e) => { e.textContent = winTag() + ' spend'; });
+
+  dash.draw('team-rows', (tbody) => {
+    const s = dash.data('standing'), w = win(), who = picked();
+    tbody.replaceChildren();
+    if (s.status !== 'ok') return;
+    const rows = s.data.filter((r) => r.window === w).sort((a, b) => b.spend - a.spend || CS.indexOf(a.cs) - CS.indexOf(b.cs));
+    const before = w === '1d' ? 'the day before' : w === 'month' || w === 'all' || w === '90d' ? null : 'the ' + DAYS[w] + ' days before';
+    const max = (rows[0] && rows[0].spend) || 1;
+    rows.forEach((r) => {
+      const tr = el('tr', 'tn-pick' + (who === r.cs ? ' tn-mine' : ''));
+      tr.dataset.key = enc(r.window) + ',' + enc(r.cs);
+      tr.tabIndex = 0;
+      tr.setAttribute('aria-pressed', String(who === r.cs));
+      const go = () => dash.setParams({cs: who === r.cs ? null : r.cs});
+      tr.addEventListener('click', go);
+      tr.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } });
+      const rk = el('td', 'tn-rank'); rk.append(el('span', 'tn-badge' + (r.spend > 0 && r.rank <= 3 ? ' tn-r' + r.rank : ''), String(r.rank))); tr.append(rk);
+      const txt = el('div', 'tn-who-text');
+      txt.append(el('div', 'tn-name', r.cs));
+      if (r.spend > 0) txt.append(el('span', 'tn-sub', 'Hook ' + pct(r.hook_rate, 1) + ' · Hold ' + pct(r.hold_rate, 1) + ' · CTR ' + pct(r.ctr, 2)));
+      txt.append(el('span', 'tn-sub', d3.format(',')(r.ads) + (r.ads === 1 ? ' ad' : ' ads') + ' · videos ' + big(r.video_spend) + ' · statics ' + big(r.static_spend)));
+      if (before && r.change != null) txt.append(el('span', 'tn-sub ' + (r.change >= 0 ? 'tn-up' : 'tn-down'), (r.change >= 0 ? '+' : '') + d3.format(',.0f')(r.change) + '% vs ' + before));
+      if (w === 'month' && r.days && r.spend > 0) txt.append(el('span', 'tn-sub tn-cs-pace', r.days >= r.days_in_month ? 'Month over' : 'On pace for ' + big(r.pace_spend) + ' by month end'));
+      const bar = el('span', 'tn-bar'); const f = el('span'); f.style.width = (100 * r.spend / max) + '%'; bar.append(f); txt.append(bar);
+      const av = el('span', 'tn-avatar' + (FACES.includes(r.cs) ? ' tn-face tn-face-' + r.cs.toLowerCase() : ' tn-pod'), POD[r.cs]);
+      const who2 = el('div', 'tn-who'); who2.append(av, txt);
+      const c = el('td'); c.append(who2); tr.append(c);
+      const v = el('td', 'num tn-val' + (r.spend < 1 ? ' tn-zero' : ''), big(r.spend));
+      v.dataset.source = 'standing'; v.dataset.where = 'window=' + enc(w) + '&cs=' + enc(r.cs); v.dataset.field = 'spend';
+      tr.append(v);
+      tbody.append(tr);
+    });
+  });
+
+  const adCell = (r, pics) => {
+    const href = safeLink(r.watch);
+    const th = el(href ? 'a' : 'div', 'tn-thumb' + (r.format === 'Video' ? ' tn-video' : ''));
+    if (href) { th.href = href; th.target = '_blank'; th.rel = 'noopener noreferrer'; th.setAttribute('aria-label', 'Watch ' + r.concept); }
+    const src = pics.get(r.ad_name);
+    if (src && /^data:image\//.test(src)) th.style.backgroundImage = 'url("' + src + '")';
+    else { th.classList.add('tn-thumb-none'); th.classList.remove('tn-video'); th.textContent = r.format === 'Video' ? 'VID' : 'IMG'; }
+    th.title = r.ad_name;
+    th.dataset.source = 'thumbs';
+    const txt = el('div', 'tn-who-text');
+    txt.append(el('div', 'tn-name', r.concept));
+    const sub = el('span', 'tn-sub');
+    sub.append(el('span', 'tn-chip ' + (r.format === 'Video' ? 'tn-chip-video' : 'tn-chip-static'), r.format));
+    sub.append(byline(r));
+    txt.append(sub);
+    const who2 = el('div', 'tn-who'); who2.append(th, txt);
+    return {cell: who2, txt, href};
+  };
+
+  dash.draw('new-rows', (tbody) => {
+    tbody.replaceChildren();
+    const who = picked(), pics = thumbOf();
+    const rows = rowsOf('new').filter((r) => !who || r.cs === who).sort((a, b) => b.spend - a.spend).slice(0, 50);
+    if (!rows.length) { const tr = el('tr'); const td = el('td', 'tn-msg', 'No ads ' + (who ? 'with ' + who + ' in the name ' : '') + 'started spending in the last 7 days.'); td.colSpan = 2; tr.append(td); tbody.append(tr); return; }
+    rows.forEach((r) => {
+      const tr = el('tr');
+      tr.dataset.key = ['new', r.cs, r.ad_name].map(enc).join(',');
+      const {cell, txt, href} = adCell(r, pics);
+      txt.append(el('span', 'tn-sub', 'Started ' + fmtDate(r.launch_date) + (r.format === 'Video' ? ' · Hook ' + pct(r.hook_rate, 1) + ' · Hold ' + pct(r.hold_rate, 1) : '') + ' · CTR ' + pct(r.ctr, 2)));
+      if (href) { const a = el('a', 'tn-watch', 'Watch'); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.setAttribute('aria-label', 'Watch ' + r.concept + ' (opens Meta ad preview)'); txt.append(a); }
+      const c = el('td'); c.append(cell); tr.append(c);
+      tr.append(el('td', 'num tn-val', big(r.spend)));
+      tbody.append(tr);
+    });
+  });
+
+  dash.draw('ad-rows', (tbody) => {
+    tbody.replaceChildren();
+    const w = win(), who = picked(), pics = thumbOf(), fmt = tbody.dataset.fmt;
+    const k = sortBy(fmt);
+    const rows = rowsOf('ad')
+      .filter((r) => r.window === w && r.format === fmt && (!who || r.cs === who) && (k === 'spend' || (r[k] != null && r.spend >= MIN_SPEND[w])))
+      .sort((a, b) => b[k] - a[k] || b.spend - a.spend).slice(0, who ? 15 : 30);
+    if (!rows.length) { const tr = el('tr'); const td = el('td', 'tn-msg', 'No ' + (fmt === 'Static' ? 'statics' : 'videos') + ' with ' + (who || 'a CS') + ' in the name spent in ' + WIN[w] + '.'); td.colSpan = 3; tr.append(td); tbody.append(tr); return; }
+    rows.forEach((r, i) => {
+      const tr = el('tr');
+      tr.dataset.key = ['ad', r.window, r.cs, r.rank].map(enc).join(',');
+      const rk = el('td', 'tn-rank'); rk.append(el('span', 'tn-badge' + (i < 3 ? ' tn-r' + (i + 1) : ''), String(i + 1))); tr.append(rk);
+      const href = safeLink(r.watch);
+      const th = el(href ? 'a' : 'div', 'tn-thumb' + (r.format === 'Video' ? ' tn-video' : ''));
+      if (href) { th.href = href; th.target = '_blank'; th.rel = 'noopener noreferrer'; th.setAttribute('aria-label', 'Watch ' + r.concept); }
+      const src = pics.get(r.ad_name);
+      if (src && /^data:image\//.test(src)) th.style.backgroundImage = 'url("' + src + '")';
+      else { th.classList.add('tn-thumb-none'); th.classList.remove('tn-video'); th.textContent = r.format === 'Video' ? 'VID' : 'IMG'; }
+      th.title = r.ad_name;
+      th.dataset.source = 'thumbs';
+      const txt = el('div', 'tn-who-text');
+      txt.append(el('div', 'tn-name', r.concept));
+      const sub = el('span', 'tn-sub');
+      sub.append(el('span', 'tn-chip ' + (r.format === 'Video' ? 'tn-chip-video' : 'tn-chip-static'), r.format));
+      sub.append(byline(r));
+      txt.append(sub);
+      if (k !== 'spend') txt.append(el('span', 'tn-sub', big(r.spend) + ' spend in this window'));
+      if (href) { const a = el('a', 'tn-watch', 'Watch'); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.setAttribute('aria-label', 'Watch ' + r.concept + ' (opens Meta ad preview)'); txt.append(a); }
+      const who2 = el('div', 'tn-who'); who2.append(th, txt);
+      const c = el('td'); c.append(who2);
+      tr.append(c);
+      tr.append(el('td', 'num tn-val', k === 'spend' ? big(r.spend) : pct(r[k], k === 'ctr' ? 2 : 1)));
+      tbody.append(tr);
+    });
+  });
+
+</script>
+
+</body></html>
